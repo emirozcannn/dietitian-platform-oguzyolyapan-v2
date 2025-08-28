@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Helmet } from 'react-helmet-async';
-import { supabase } from '../lib/supabaseClient';
+import apiClient from '../lib/api.js';
 
 const FAQ = () => {
   const { i18n } = useTranslation();
@@ -24,40 +24,24 @@ const FAQ = () => {
     try {
       setLoading(true);
       setError(null);
-      
-      // Load FAQ items with categories
-      const { data: faqItems, error: faqError } = await supabase
-        .from('faq_items')
-        .select(`
-          *,
-          faq_categories (
-            id,
-            name_tr,
-            name_en,
-            icon,
-            color
-          )
-        `)
-        .eq('is_active', true)
-        .order('order_index');
 
-      if (faqError) throw faqError;
+      const itemsResponse = await apiClient.get('/faq/items/public');
+      const categoriesResponse = await apiClient.get('/faq/categories/public');
 
-      // Load FAQ categories
-      const { data: categoriesData, error: categoriesError } = await supabase
-        .from('faq_categories')
-        .select('*')
-        .eq('is_active', true)
-        .order('order_index');
+      if (!itemsResponse.success) {
+        throw new Error(itemsResponse.message || 'FAQ verileri yüklenemedi');
+      }
+      if (!categoriesResponse.success) {
+        throw new Error(categoriesResponse.message || 'Kategori verileri yüklenemedi');
+      }
 
-      if (categoriesError) throw categoriesError;
-
-      setFaqData(faqItems || []);
-      setCategories(categoriesData || []);
-      
+      setFaqData(Array.isArray(itemsResponse.data) ? itemsResponse.data : []);
+      setCategories(Array.isArray(categoriesResponse.data) ? categoriesResponse.data : []);
     } catch (error) {
       console.error('Error loading FAQ data:', error);
       setError(error.message);
+      setFaqData([]);
+      setCategories([]);
     } finally {
       setLoading(false);
     }
@@ -158,7 +142,7 @@ const FAQ = () => {
                     >
                       <option value="all">{isEnglish ? 'All Categories' : 'Tüm Kategoriler'}</option>
                       {categories.map(category => (
-                        <option key={category.id} value={category.id}>
+                        <option key={category._id} value={category._id}>
                           {isEnglish ? category.name_en : category.name_tr}
                         </option>
                       ))}
@@ -184,13 +168,13 @@ const FAQ = () => {
                 </button>
                 {categories.map(category => (
                   <button
-                    key={category.id}
-                    className={`btn btn-sm ${selectedCategory === category.id ? 'btn-primary' : 'btn-outline-primary'}`}
-                    onClick={() => setSelectedCategory(category.id)}
+                    key={category._id}
+                    className={`btn btn-sm ${selectedCategory === category._id ? 'btn-primary' : 'btn-outline-primary'}`}
+                    onClick={() => setSelectedCategory(category._id)}
                     style={{ 
-                      backgroundColor: selectedCategory === category.id ? category.color : 'transparent',
+                      backgroundColor: selectedCategory === category._id ? category.color : 'transparent',
                       borderColor: category.color,
-                      color: selectedCategory === category.id ? 'white' : category.color
+                      color: selectedCategory === category._id ? 'white' : category.color
                     }}
                   >
                     <i className={`bi ${category.icon} me-1`}></i>
@@ -238,15 +222,15 @@ const FAQ = () => {
             ) : (
               <div className="accordion" id="faqAccordion">
                 {filteredFAQ.map((item, index) => (
-                  <div key={item.id} className="accordion-item mb-3 border-0 shadow-sm">
+                  <div key={item._id} className="accordion-item mb-3 border-0 shadow-sm">
                     <h2 className="accordion-header">
                       <button
                         className="accordion-button collapsed fw-semibold"
                         type="button"
                         data-bs-toggle="collapse"
-                        data-bs-target={`#collapse${item.id}`}
+                        data-bs-target={`#collapse${item._id}`}
                         aria-expanded="false"
-                        aria-controls={`collapse${item.id}`}
+                        aria-controls={`collapse${item._id}`}
                         style={{ backgroundColor: '#f8f9fa', borderRadius: '8px' }}
                       >
                         <div className="d-flex align-items-center w-100">
@@ -269,7 +253,7 @@ const FAQ = () => {
                       </button>
                     </h2>
                     <div
-                      id={`collapse${item.id}`}
+                      id={`collapse${item._id}`}
                       className="accordion-collapse collapse"
                       data-bs-parent="#faqAccordion"
                     >

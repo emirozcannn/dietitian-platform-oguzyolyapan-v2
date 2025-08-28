@@ -1,13 +1,13 @@
 import express from 'express';
-import { blog } from '../src/lib/mongoClient.js';
+import Category from '../src/models/Category.js';
 
 const router = express.Router();
 
-// Tüm kategorileri getir - MongoDB client kullanarak
+// Tüm kategorileri getir - Mongoose kullanarak
 router.get('/', async (req, res) => {
   try {
     const { language = 'tr' } = req.query;
-    const categories = await blog.getCategories();
+    const categories = await Category.find({}).sort({ order_index: 1, created_at: -1 });
     
     res.json({
       success: true,
@@ -27,11 +27,12 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const categoryData = req.body;
-    const category = await blog.createCategory(categoryData);
+    const category = new Category(categoryData);
+    const savedCategory = await category.save();
     
     res.status(201).json({
       success: true,
-      data: category,
+      data: savedCategory,
       message: 'Kategori başarıyla oluşturuldu'
     });
   } catch (error) {
@@ -50,7 +51,7 @@ router.put('/:id', async (req, res) => {
     const { id } = req.params;
     const updateData = req.body;
     
-    const category = await blog.updateCategory(id, updateData);
+    const category = await Category.findByIdAndUpdate(id, updateData, { new: true });
     
     if (!category) {
       return res.status(404).json({
@@ -78,7 +79,14 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    await blog.deleteCategory(id);
+    const deletedCategory = await Category.findByIdAndDelete(id);
+    
+    if (!deletedCategory) {
+      return res.status(404).json({
+        success: false,
+        message: 'Kategori bulunamadı'
+      });
+    }
     
     res.json({
       success: true,

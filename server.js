@@ -1,14 +1,10 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import connectDB from './src/lib/mongodb.js';
+import connectDB from './src/lib/mongodb.js'; // Sadece Mongoose
 
 // Environment variables
 dotenv.config();
-
-// Debug: JWT_SECRET kontrolü
-console.log('🔑 JWT_SECRET status:', process.env.JWT_SECRET ? 'Found' : 'Not found');
-console.log('🔑 JWT_SECRET length:', process.env.JWT_SECRET?.length || 0);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -18,7 +14,7 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// MongoDB bağlantısı
+// MongoDB bağlantısı (sadece Mongoose)
 connectDB();
 
 // Routes
@@ -27,23 +23,25 @@ import packagesRoutes from './routes/packages.js';
 import testimonialsRoutes from './routes/testimonials.js';
 import blogRoutes from './routes/blog.js';
 import categoryRoutes from './routes/category.js';
+import faqRoutes from './routes/faq.js'; // Yeni Mongoose versiyonu
 
 app.use('/api/auth', authRoutes);
 app.use('/api/packages', packagesRoutes);
 app.use('/api/testimonials', testimonialsRoutes);
 app.use('/api/blog', blogRoutes);
 app.use('/api/categories', categoryRoutes);
+app.use('/api/faq', faqRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'OK', 
-    message: 'Oğuz Yolyapan API is running',
+    message: 'API is running',
     timestamp: new Date().toISOString()
   });
 });
 
-// Error handling middleware
+// Error handling
 app.use((err, req, res, next) => {
   console.error('API Error:', err);
   res.status(500).json({
@@ -62,6 +60,7 @@ app.use('*', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 API Server running on http://localhost:${PORT}`);
-  console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
+  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Health check: http://localhost:${PORT}/api/health`);
+  console.log(`FAQ Test: http://localhost:${PORT}/api/faq/items/public`);
 });

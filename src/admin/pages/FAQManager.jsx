@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabaseClient';
+import apiClient from '../../lib/api.js';
 
 const FAQManager = () => {
   const [faqItems, setFaqItems] = useState([]);
@@ -11,6 +11,7 @@ const FAQManager = () => {
   const [editingCategory, setEditingCategory] = useState(null);
   const [showItemModal, setShowItemModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
   // FAQ Item Form State
   const [itemForm, setItemForm] = useState({
@@ -33,6 +34,11 @@ const FAQManager = () => {
     is_active: true
   });
 
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 4000);
+  };
+
   useEffect(() => {
     loadFAQData();
   }, []);
@@ -42,36 +48,29 @@ const FAQManager = () => {
       setLoading(true);
       setError(null);
 
-      // Load FAQ items with categories
-      const { data: itemsData, error: itemsError } = await supabase
-        .from('faq_items')
-        .select(`
-          *,
-          faq_categories (
-            id,
-            name_tr,
-            name_en,
-            icon,
-            color
-          )
-        `)
-        .order('order_index');
+      console.log('🔄 Loading FAQ data...');
+      const itemsResponse = await apiClient.get('/faq/items');
+      const categoriesResponse = await apiClient.get('/faq/categories');
 
-      if (itemsError) throw itemsError;
+      console.log('📦 Items Response:', itemsResponse);
+      console.log('📂 Categories Response:', categoriesResponse);
 
-      // Load categories
-      const { data: categoriesData, error: categoriesError } = await supabase
-        .from('faq_categories')
-        .select('*')
-        .order('order_index');
+      if (!itemsResponse.success) throw new Error(itemsResponse.message || 'FAQ öğeleri yüklenemedi');
+      if (!categoriesResponse.success) throw new Error(categoriesResponse.message || 'Kategoriler yüklenemedi');
 
-      if (categoriesError) throw categoriesError;
+      const items = Array.isArray(itemsResponse.data) ? itemsResponse.data : [];
+      const cats = Array.isArray(categoriesResponse.data) ? categoriesResponse.data : [];
 
-      setFaqItems(itemsData || []);
-      setCategories(categoriesData || []);
+      console.log('✅ Final items:', items);
+      console.log('✅ Final categories:', cats);
+
+      setFaqItems(items);
+      setCategories(cats);
     } catch (error) {
       console.error('Error loading FAQ data:', error);
-      setError(error.message);
+      setError(error.message || 'Veri yükleme hatası');
+      setFaqItems([]);
+      setCategories([]);
     } finally {
       setLoading(false);
     }
@@ -81,47 +80,64 @@ const FAQManager = () => {
   const handleSaveItem = async (e) => {
     e.preventDefault();
     try {
+      setLoading(true);
+
+      if (!itemForm.question_tr.trim() || !itemForm.question_en.trim()) {
+        throw new Error('Soru alanları gereklidir (hem TR hem EN)');
+      }
+      if (!itemForm.answer_tr.trim() || !itemForm.answer_en.trim()) {
+        throw new Error('Cevap alanları gereklidir (hem TR hem EN)');
+      }
+      if (!itemForm.category_id) {
+        throw new Error('Kategori seçimi gereklidir');
+      }
+
+      const submitData = {
+        ...itemForm,
+        order_index: parseInt(itemForm.order_index) || 0
+      };
+
+      let response;
       if (editingItem) {
-        // Update existing item
-        const { error } = await supabase
-          .from('faq_items')
-          .update(itemForm)
-          .eq('id', editingItem.id);
-
-        if (error) throw error;
+        response = await apiClient.put(`/faq/items/${editingItem._id || editingItem.id}`, submitData);
       } else {
-        // Create new item
-        const { error } = await supabase
-          .from('faq_items')
-          .insert([itemForm]);
+        response = await apiClient.post('/faq/items', submitData);
+      }
 
-        if (error) throw error;
+      if (!response.success) {
+        throw new Error(response.message || 'Kaydetme işlemi başarısız');
       }
 
       setShowItemModal(false);
       setEditingItem(null);
       resetItemForm();
-      loadFAQData();
+      await loadFAQData();
+      showToast('FAQ öğesi başarıyla kaydedildi', 'success');
     } catch (error) {
       console.error('Error saving FAQ item:', error);
       setError(error.message);
+      showToast('Hata: ' + error.message, 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleDeleteItem = async (id) => {
-    if (window.confirm('Bu FAQ öğesini silmek istediğinizden emin misiniz?')) {
-      try {
-        const { error } = await supabase
-          .from('faq_items')
-          .delete()
-          .eq('id', id);
-
-        if (error) throw error;
-        loadFAQData();
-      } catch (error) {
-        console.error('Error deleting FAQ item:', error);
-        setError(error.message);
+    if (!window.confirm('Bu FAQ öğesini silmek istediğinizden emin misiniz?')) return;
+    try {
+      setLoading(true);
+      const response = await apiClient.delete(`/faq/items/${id}`);
+      if (!response.success) {
+        throw new Error(response.message || 'Silme işlemi başarısız');
       }
+      await loadFAQData();
+      showToast('FAQ öğesi başarıyla silindi', 'success');
+    } catch (error) {
+      console.error('Error deleting FAQ item:', error);
+      setError(error.message);
+      showToast('Hata: ' + error.message, 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -155,47 +171,58 @@ const FAQManager = () => {
   const handleSaveCategory = async (e) => {
     e.preventDefault();
     try {
+      setLoading(true);
+
+      if (!categoryForm.name_tr.trim() || !categoryForm.name_en.trim()) {
+        throw new Error('Kategori isimleri gereklidir (hem TR hem EN)');
+      }
+
+      const submitData = {
+        ...categoryForm,
+        order_index: parseInt(categoryForm.order_index) || 0
+      };
+
+      let response;
       if (editingCategory) {
-        // Update existing category
-        const { error } = await supabase
-          .from('faq_categories')
-          .update(categoryForm)
-          .eq('id', editingCategory.id);
-
-        if (error) throw error;
+        response = await apiClient.put(`/faq/categories/${editingCategory._id || editingCategory.id}`, submitData);
       } else {
-        // Create new category
-        const { error } = await supabase
-          .from('faq_categories')
-          .insert([categoryForm]);
+        response = await apiClient.post('/faq/categories', submitData);
+      }
 
-        if (error) throw error;
+      if (!response.success) {
+        throw new Error(response.message || 'Kaydetme işlemi başarısız');
       }
 
       setShowCategoryModal(false);
       setEditingCategory(null);
       resetCategoryForm();
-      loadFAQData();
+      await loadFAQData();
+      showToast('Kategori başarıyla kaydedildi', 'success');
     } catch (error) {
       console.error('Error saving FAQ category:', error);
       setError(error.message);
+      showToast('Hata: ' + error.message, 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleDeleteCategory = async (id) => {
-    if (window.confirm('Bu kategoriyi silmek istediğinizden emin misiniz? Bu kategoriye bağlı tüm FAQ öğeleri etkilenecek.')) {
-      try {
-        const { error } = await supabase
-          .from('faq_categories')
-          .delete()
-          .eq('id', id);
-
-        if (error) throw error;
-        loadFAQData();
-      } catch (error) {
-        console.error('Error deleting FAQ category:', error);
-        setError(error.message);
+    if (!window.confirm('Bu kategoriyi silmek istediğinizden emin misiniz? Bu kategoriye bağlı tüm FAQ öğeleri etkilenecek.')) return;
+    try {
+      setLoading(true);
+      const response = await apiClient.delete(`/faq/categories/${id}`);
+      if (!response.success) {
+        throw new Error(response.message || 'Silme işlemi başarısız');
       }
+      await loadFAQData();
+      showToast('Kategori başarıyla silindi', 'success');
+    } catch (error) {
+      console.error('Error deleting FAQ category:', error);
+      setError(error.message);
+      showToast('Hata: ' + error.message, 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -225,31 +252,39 @@ const FAQManager = () => {
 
   const toggleItemStatus = async (id, currentStatus) => {
     try {
-      const { error } = await supabase
-        .from('faq_items')
-        .update({ is_active: !currentStatus })
-        .eq('id', id);
-
-      if (error) throw error;
-      loadFAQData();
+      setLoading(true);
+      const response = await apiClient.patch(`/faq/items/${id}/status`, {
+        is_active: !currentStatus
+      });
+      if (!response.success) {
+        throw new Error(response.message || 'Durum güncelleme başarısız');
+      }
+      await loadFAQData();
     } catch (error) {
       console.error('Error toggling FAQ item status:', error);
       setError(error.message);
+      showToast('Hata: ' + error.message, 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
   const toggleCategoryStatus = async (id, currentStatus) => {
     try {
-      const { error } = await supabase
-        .from('faq_categories')
-        .update({ is_active: !currentStatus })
-        .eq('id', id);
-
-      if (error) throw error;
-      loadFAQData();
+      setLoading(true);
+      const response = await apiClient.patch(`/faq/categories/${id}/status`, {
+        is_active: !currentStatus
+      });
+      if (!response.success) {
+        throw new Error(response.message || 'Durum güncelleme başarısız');
+      }
+      await loadFAQData();
     } catch (error) {
       console.error('Error toggling FAQ category status:', error);
       setError(error.message);
+      showToast('Hata: ' + error.message, 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -330,16 +365,16 @@ const FAQManager = () => {
                     </thead>
                     <tbody>
                       {faqItems.map((item) => (
-                        <tr key={item.id}>
+                        <tr key={item._id || item.id}>
                           <td>{item.order_index}</td>
                           <td>
-                            {item.faq_categories && (
+                            {item.category && (
                               <span 
                                 className="badge"
-                                style={{ backgroundColor: item.faq_categories.color, color: 'white' }}
+                                style={{ backgroundColor: item.category.color, color: 'white' }}
                               >
-                                <i className={`bi ${item.faq_categories.icon} me-1`}></i>
-                                {item.faq_categories.name_tr}
+                                <i className={`bi ${item.category.icon} me-1`}></i>
+                                {item.category.name_tr}
                               </span>
                             )}
                           </td>
@@ -357,7 +392,7 @@ const FAQManager = () => {
                           <td>
                             <button
                               className={`btn btn-sm ${item.is_active ? 'btn-success' : 'btn-secondary'}`}
-                              onClick={() => toggleItemStatus(item.id, item.is_active)}
+                              onClick={() => toggleItemStatus(item._id || item.id, item.is_active)}
                             >
                               {item.is_active ? 'Aktif' : 'Pasif'}
                             </button>
@@ -372,7 +407,7 @@ const FAQManager = () => {
                               </button>
                               <button
                                 className="btn btn-outline-danger"
-                                onClick={() => handleDeleteItem(item.id)}
+                                onClick={() => handleDeleteItem(item._id || item.id)}
                               >
                                 <i className="bi bi-trash"></i>
                               </button>
@@ -420,7 +455,7 @@ const FAQManager = () => {
                     </thead>
                     <tbody>
                       {categories.map((category) => (
-                        <tr key={category.id}>
+                        <tr key={category._id}>
                           <td>{category.order_index}</td>
                           <td>
                             <span 
@@ -450,7 +485,7 @@ const FAQManager = () => {
                           <td>
                             <button
                               className={`btn btn-sm ${category.is_active ? 'btn-success' : 'btn-secondary'}`}
-                              onClick={() => toggleCategoryStatus(category.id, category.is_active)}
+                              onClick={() => toggleCategoryStatus(category._id, category.is_active)}
                             >
                               {category.is_active ? 'Aktif' : 'Pasif'}
                             </button>
@@ -465,7 +500,7 @@ const FAQManager = () => {
                               </button>
                               <button
                                 className="btn btn-outline-danger"
-                                onClick={() => handleDeleteCategory(category.id)}
+                                onClick={() => handleDeleteCategory(category._id)}
                               >
                                 <i className="bi bi-trash"></i>
                               </button>
@@ -510,12 +545,14 @@ const FAQManager = () => {
                           required
                         >
                           <option value="">Kategori Seçin</option>
+                          {console.log('🎯 Rendering categories in dropdown:', categories)}
                           {categories.map(category => (
-                            <option key={category.id} value={category.id}>
+                            <option key={category._id} value={category._id}>
                               {category.name_tr}
                             </option>
                           ))}
                         </select>
+                        <small className="text-muted">Mevcut kategori sayısı: {categories.length}</small>
                       </div>
                     </div>
                     <div className="col-md-6">
@@ -705,6 +742,18 @@ const FAQManager = () => {
                 </div>
               </form>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notifications */}
+      {toast.show && (
+        <div className={`toast align-items-center text-bg-${toast.type} border-0 position-fixed bottom-0 end-0 m-3`} role="alert" aria-live="assertive" aria-atomic="true">
+          <div className="d-flex">
+            <div className="toast-body">
+              {toast.message}
+            </div>
+            <button type="button" className="btn-close btn-close-white me-2 m-auto" onClick={() => setToast({ ...toast, show: false })}></button>
           </div>
         </div>
       )}
