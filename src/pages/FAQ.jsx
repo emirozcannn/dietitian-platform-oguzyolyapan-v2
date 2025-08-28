@@ -53,7 +53,11 @@ const FAQ = () => {
 
     // Filter by category
     if (selectedCategory !== 'all') {
-      filtered = filtered.filter(item => item.category_id === selectedCategory);
+      filtered = filtered.filter(item => {
+        // Check both category_id and populated category._id
+        return item.category_id === selectedCategory || 
+               (item.category && item.category._id === selectedCategory);
+      });
     }
 
     // Filter by search term
@@ -240,13 +244,13 @@ const FAQ = () => {
                           <div className="flex-grow-1">
                             {isEnglish ? item.question_en : item.question_tr}
                           </div>
-                          {item.faq_categories && (
+                          {item.category && (
                             <span 
                               className="badge ms-3"
-                              style={{ backgroundColor: item.faq_categories.color, color: 'white' }}
+                              style={{ backgroundColor: item.category.color, color: 'white' }}
                             >
-                              <i className={`bi ${item.faq_categories.icon} me-1`}></i>
-                              {isEnglish ? item.faq_categories.name_en : item.faq_categories.name_tr}
+                              <i className={`bi ${item.category.icon} me-1`}></i>
+                              {isEnglish ? item.category.name_en : item.category.name_tr}
                             </span>
                           )}
                         </div>

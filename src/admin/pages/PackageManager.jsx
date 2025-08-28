@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabaseClient';
+import apiClient from '../../lib/api.js';
 
 const PackageManager = ({ isEnglish }) => {
   const [packages, setPackages] = useState([]);
@@ -7,19 +7,17 @@ const PackageManager = ({ isEnglish }) => {
   const [showModal, setShowModal] = useState(false);
   const [editingPackage, setEditingPackage] = useState(null);
   const [formData, setFormData] = useState({
-    title_tr: '',
-    title_en: '',
-    description_tr: '',
-    description_en: '',
+    title: { tr: '', en: '' },
+    description: { tr: '', en: '' },
     price: '',
-    duration_tr: '',
-    duration_en: '',
+    originalPrice: '',
+    duration: { tr: '', en: '' },
     icon: 'bi-heart',
-    is_popular: false,
-    features_tr: [],
-    features_en: [],
-    image_url: '',
-    is_active: true
+    isPopular: false,
+    features: { tr: [], en: [] },
+    isActive: true,
+    category: 'basic',
+    orderIndex: 0
   });
 
   // Available icons
@@ -41,15 +39,16 @@ const PackageManager = ({ isEnglish }) => {
   // Fetch packages from database
   const fetchPackages = async () => {
     try {
-      const { data, error } = await supabase
-        .from('packages')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setPackages(data || []);
+      const response = await apiClient.get('/packages?lang=tr');
+      
+      if (response.success) {
+        setPackages(response.data || []);
+      } else {
+        throw new Error(response.message || 'Paketler yüklenemedi');
+      }
     } catch (error) {
       console.error('Error fetching packages:', error);
+      setPackages([]);
     } finally {
       setLoading(false);
     }
@@ -62,10 +61,23 @@ const PackageManager = ({ isEnglish }) => {
   // Handle form input changes
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
+    
+    // Handle nested object properties
+    if (name.includes('.')) {
+      const [parent, child] = name.split('.');
+      setFormData(prev => ({
+        ...prev,
+        [parent]: {
+          ...prev[parent],
+          [child]: type === 'checkbox' ? checked : value
+        }
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value
+      }));
+    }
   };
 
   // Handle features input (convert string to array)
@@ -74,7 +86,10 @@ const PackageManager = ({ isEnglish }) => {
     const features = value.split('\n').filter(item => item.trim() !== '');
     setFormData(prev => ({
       ...prev,
-      [`features_${language}`]: features
+      features: {
+        ...prev.features,
+        [language]: features
+      }
     }));
   };
 
@@ -82,19 +97,17 @@ const PackageManager = ({ isEnglish }) => {
   const openNewPackageModal = () => {
     setEditingPackage(null);
     setFormData({
-      title_tr: '',
-      title_en: '',
-      description_tr: '',
-      description_en: '',
+      title: { tr: '', en: '' },
+      description: { tr: '', en: '' },
       price: '',
-      duration_tr: '',
-      duration_en: '',
+      originalPrice: '',
+      duration: { tr: '', en: '' },
       icon: 'bi-heart',
-      is_popular: false,
-      features_tr: [],
-      features_en: [],
-      image_url: '',
-      is_active: true
+      isPopular: false,
+      features: { tr: [], en: [] },
+      isActive: true,
+      category: 'basic',
+      orderIndex: 0
     });
     setShowModal(true);
   };
@@ -103,19 +116,29 @@ const PackageManager = ({ isEnglish }) => {
   const openEditPackageModal = (pkg) => {
     setEditingPackage(pkg);
     setFormData({
-      title_tr: pkg.title_tr || '',
-      title_en: pkg.title_en || '',
-      description_tr: pkg.description_tr || '',
-      description_en: pkg.description_en || '',
+      title: { 
+        tr: pkg.title || '', 
+        en: pkg.title || ''
+      },
+      description: { 
+        tr: pkg.description || '', 
+        en: pkg.description || ''
+      },
       price: pkg.price || '',
-      duration_tr: pkg.duration_tr || '',
-      duration_en: pkg.duration_en || '',
+      originalPrice: pkg.originalPrice || '',
+      duration: { 
+        tr: pkg.duration || '', 
+        en: pkg.duration || ''
+      },
       icon: pkg.icon || 'bi-heart',
-      is_popular: pkg.is_popular || false,
-      features_tr: pkg.features_tr || [],
-      features_en: pkg.features_en || [],
-      image_url: pkg.image_url || '',
-      is_active: pkg.is_active
+      isPopular: pkg.isPopular || false,
+      features: { 
+        tr: pkg.features || [], 
+        en: pkg.features || []
+      },
+      isActive: pkg.isActive !== undefined ? pkg.isActive : true,
+      category: pkg.category || 'basic',
+      orderIndex: pkg.orderIndex || 0
     });
     setShowModal(true);
   };
@@ -126,25 +149,33 @@ const PackageManager = ({ isEnglish }) => {
     
     try {
       const packageData = {
-        ...formData,
-        price: parseFloat(formData.price)
+        title: formData.title,
+        description: formData.description,
+        price: parseFloat(formData.price),
+        originalPrice: formData.originalPrice ? parseFloat(formData.originalPrice) : null,
+        duration: formData.duration,
+        features: formData.features,
+        isPopular: formData.isPopular,
+        isActive: formData.isActive,
+        icon: formData.icon,
+        category: formData.category,
+        orderIndex: parseInt(formData.orderIndex) || 0
       };
 
       if (editingPackage) {
         // Update existing package
-        const { error } = await supabase
-          .from('packages')
-          .update(packageData)
-          .eq('id', editingPackage.id);
-
-        if (error) throw error;
+        const response = await apiClient.put(`/packages/${editingPackage._id || editingPackage.id}`, packageData);
+        
+        if (!response.success) {
+          throw new Error(response.message || 'Paket güncellenemedi');
+        }
       } else {
         // Create new package
-        const { error } = await supabase
-          .from('packages')
-          .insert([packageData]);
-
-        if (error) throw error;
+        const response = await apiClient.post('/packages', packageData);
+        
+        if (!response.success) {
+          throw new Error(response.message || 'Paket oluşturulamadı');
+        }
       }
 
       setShowModal(false);
@@ -162,12 +193,12 @@ const PackageManager = ({ isEnglish }) => {
     }
 
     try {
-      const { error } = await supabase
-        .from('packages')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
+      const response = await apiClient.delete(`/packages/${id}`);
+      
+      if (!response.success) {
+        throw new Error(response.message || 'Paket silinemedi');
+      }
+      
       fetchPackages();
     } catch (error) {
       console.error('Error deleting package:', error);
@@ -178,15 +209,18 @@ const PackageManager = ({ isEnglish }) => {
   // Toggle package status
   const togglePackageStatus = async (id, currentStatus) => {
     try {
-      const { error } = await supabase
-        .from('packages')
-        .update({ is_active: !currentStatus })
-        .eq('id', id);
-
-      if (error) throw error;
+      const response = await apiClient.patch(`/packages/${id}/status`, { 
+        isActive: !currentStatus 
+      });
+      
+      if (!response.success) {
+        throw new Error(response.message || 'Paket durumu güncellenemedi');
+      }
+      
       fetchPackages();
     } catch (error) {
       console.error('Error updating package status:', error);
+      alert('Hata: ' + error.message);
     }
   };
 
@@ -228,27 +262,27 @@ const PackageManager = ({ isEnglish }) => {
           </thead>
           <tbody>
             {packages.map((pkg) => (
-              <tr key={pkg.id}>
-                <td>{pkg.id}</td>
+              <tr key={pkg._id || pkg.id}>
+                <td>{(pkg._id || pkg.id).slice(-8)}</td>
                 <td>
                   <i className={`${pkg.icon || 'bi-heart'} text-primary`} style={{ fontSize: '1.2rem' }}></i>
                 </td>
-                <td>{pkg.title_tr}</td>
-                <td>{pkg.title_en}</td>
-                <td>{pkg.price} ₺</td>
+                <td>{pkg.title}</td>
+                <td>{pkg.title}</td>
+                <td>₺{pkg.price}</td>
                 <td>
                   <span className="badge bg-info">
-                    {pkg.duration_tr || '1 Ay'} / {pkg.duration_en || '1 Month'}
+                    {pkg.duration || (isEnglish ? '1 Month' : '1 Ay')}
                   </span>
                 </td>
                 <td>
-                  <span className={`badge ${pkg.is_popular ? 'bg-warning' : 'bg-secondary'}`}>
-                    {pkg.is_popular ? (isEnglish ? 'Popular' : 'Popüler') : (isEnglish ? 'Normal' : 'Normal')}
+                  <span className={`badge ${pkg.isPopular ? 'bg-warning' : 'bg-secondary'}`}>
+                    {pkg.isPopular ? (isEnglish ? 'Popular' : 'Popüler') : (isEnglish ? 'Normal' : 'Normal')}
                   </span>
                 </td>
                 <td>
-                  <span className={`badge ${pkg.is_active ? 'bg-success' : 'bg-secondary'}`}>
-                    {pkg.is_active ? (isEnglish ? 'Active' : 'Aktif') : (isEnglish ? 'Inactive' : 'Pasif')}
+                  <span className={`badge ${pkg.isActive ? 'bg-success' : 'bg-secondary'}`}>
+                    {pkg.isActive ? (isEnglish ? 'Active' : 'Aktif') : (isEnglish ? 'Inactive' : 'Pasif')}
                   </span>
                 </td>
                 <td>
@@ -260,14 +294,14 @@ const PackageManager = ({ isEnglish }) => {
                       <i className="bi bi-pencil"></i>
                     </button>
                     <button
-                      className={`btn btn-sm ${pkg.is_active ? 'btn-outline-warning' : 'btn-outline-success'}`}
-                      onClick={() => togglePackageStatus(pkg.id, pkg.is_active)}
+                      className={`btn btn-sm ${pkg.isActive ? 'btn-outline-warning' : 'btn-outline-success'}`}
+                      onClick={() => togglePackageStatus(pkg._id || pkg.id, pkg.isActive)}
                     >
-                      <i className={`bi ${pkg.is_active ? 'bi-eye-slash' : 'bi-eye'}`}></i>
+                      <i className={`bi ${pkg.isActive ? 'bi-eye-slash' : 'bi-eye'}`}></i>
                     </button>
                     <button
                       className="btn btn-sm btn-outline-danger"
-                      onClick={() => deletePackage(pkg.id)}
+                      onClick={() => deletePackage(pkg._id || pkg.id)}
                     >
                       <i className="bi bi-trash"></i>
                     </button>
@@ -302,8 +336,8 @@ const PackageManager = ({ isEnglish }) => {
                         <input
                           type="text"
                           className="form-control"
-                          name="title_tr"
-                          value={formData.title_tr}
+                          name="title.tr"
+                          value={formData.title.tr}
                           onChange={handleInputChange}
                           required
                         />
@@ -315,8 +349,8 @@ const PackageManager = ({ isEnglish }) => {
                         <input
                           type="text"
                           className="form-control"
-                          name="title_en"
-                          value={formData.title_en}
+                          name="title.en"
+                          value={formData.title.en}
                           onChange={handleInputChange}
                           required
                         />
@@ -330,9 +364,9 @@ const PackageManager = ({ isEnglish }) => {
                         <label className="form-label">{isEnglish ? 'Description (Turkish)' : 'Açıklama (Türkçe)'}</label>
                         <textarea
                           className="form-control"
-                          name="description_tr"
+                          name="description.tr"
                           rows="3"
-                          value={formData.description_tr}
+                          value={formData.description.tr}
                           onChange={handleInputChange}
                           required
                         />
@@ -343,9 +377,9 @@ const PackageManager = ({ isEnglish }) => {
                         <label className="form-label">{isEnglish ? 'Description (English)' : 'Açıklama (İngilizce)'}</label>
                         <textarea
                           className="form-control"
-                          name="description_en"
+                          name="description.en"
                           rows="3"
-                          value={formData.description_en}
+                          value={formData.description.en}
                           onChange={handleInputChange}
                           required
                         />
@@ -360,7 +394,7 @@ const PackageManager = ({ isEnglish }) => {
                         <textarea
                           className="form-control"
                           rows="4"
-                          value={formData.features_tr.join('\n')}
+                          value={formData.features.tr.join('\n')}
                           onChange={(e) => handleFeaturesChange(e, 'tr')}
                           placeholder={isEnglish ? 'One feature per line' : 'Her satıra bir özellik yazın'}
                         />
@@ -372,7 +406,7 @@ const PackageManager = ({ isEnglish }) => {
                         <textarea
                           className="form-control"
                           rows="4"
-                          value={formData.features_en.join('\n')}
+                          value={formData.features.en.join('\n')}
                           onChange={(e) => handleFeaturesChange(e, 'en')}
                           placeholder={isEnglish ? 'One feature per line' : 'Her satıra bir özellik yazın'}
                         />
@@ -401,8 +435,8 @@ const PackageManager = ({ isEnglish }) => {
                         <input
                           type="text"
                           className="form-control"
-                          name="duration_tr"
-                          value={formData.duration_tr}
+                          name="duration.tr"
+                          value={formData.duration.tr}
                           onChange={handleInputChange}
                           placeholder="örn: 1 Ay"
                         />
@@ -414,8 +448,8 @@ const PackageManager = ({ isEnglish }) => {
                         <input
                           type="text"
                           className="form-control"
-                          name="duration_en"
-                          value={formData.duration_en}
+                          name="duration.en"
+                          value={formData.duration.en}
                           onChange={handleInputChange}
                           placeholder="e.g: 1 Month"
                         />
@@ -447,14 +481,16 @@ const PackageManager = ({ isEnglish }) => {
                     </div>
                     <div className="col-md-6">
                       <div className="mb-3">
-                        <label className="form-label">{isEnglish ? 'Image URL' : 'Görsel URL'}</label>
-                        <input
-                          type="url"
-                          className="form-control"
-                          name="image_url"
-                          value={formData.image_url}
+                        <label className="form-label">{isEnglish ? 'Status' : 'Durum'}</label>
+                        <select
+                          className="form-select"
+                          name="isActive"
+                          value={formData.isActive}
                           onChange={handleInputChange}
-                        />
+                        >
+                          <option value={true}>{isEnglish ? 'Active' : 'Aktif'}</option>
+                          <option value={false}>{isEnglish ? 'Inactive' : 'Pasif'}</option>
+                        </select>
                       </div>
                     </div>
                   </div>
@@ -466,12 +502,12 @@ const PackageManager = ({ isEnglish }) => {
                           <input
                             className="form-check-input"
                             type="checkbox"
-                            id="is_popular"
-                            name="is_popular"
-                            checked={formData.is_popular}
+                            id="isPopular"
+                            name="isPopular"
+                            checked={formData.isPopular}
                             onChange={handleInputChange}
                           />
-                          <label className="form-check-label" htmlFor="is_popular">
+                          <label className="form-check-label" htmlFor="isPopular">
                             {isEnglish ? 'Popular Package' : 'Popüler Paket'}
                           </label>
                         </div>
@@ -483,13 +519,13 @@ const PackageManager = ({ isEnglish }) => {
                           <input
                             className="form-check-input"
                             type="checkbox"
-                            id="is_active"
-                            name="is_active"
-                            checked={formData.is_active}
+                            id="isFeatured"
+                            name="isFeatured"
+                            checked={formData.isFeatured}
                             onChange={handleInputChange}
                           />
-                          <label className="form-check-label" htmlFor="is_active">
-                            {isEnglish ? 'Active Package' : 'Aktif Paket'}
+                          <label className="form-check-label" htmlFor="isFeatured">
+                            {isEnglish ? 'Featured Package' : 'Öne Çıkan Paket'}
                           </label>
                         </div>
                       </div>

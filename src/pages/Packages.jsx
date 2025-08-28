@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Helmet } from 'react-helmet-async';
 import { Link, useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabaseClient';
+import apiClient from '../lib/api.js';
 import { useCart } from '../context/CartContext';
 
 const Packages = () => {
@@ -14,142 +14,54 @@ const Packages = () => {
   const [selectedPackage, setSelectedPackage] = useState(null);
   const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [showAddedMessage, setShowAddedMessage] = useState(null);
 
   // Veritabanından paketleri çek
   useEffect(() => {
     const fetchPackages = async () => {
       try {
-        const { data, error } = await supabase
-          .from('packages')
-          .select('*')
-          .eq('is_active', true)
-          .order('created_at', { ascending: false });
+        setLoading(true);
+        setError(null);
 
-        if (error) {
-          console.error('Error fetching packages:', error);
-          setPackages([]);
-        } else {
-          setPackages(data || []);
+        const response = await apiClient.get(`/packages?lang=${isEnglish ? 'en' : 'tr'}`);
+
+        if (!response.success) {
+          throw new Error(response.message || 'Paketler yüklenemedi');
         }
+
+        setPackages(Array.isArray(response.data) ? response.data : []);
       } catch (error) {
         console.error('Error fetching packages:', error);
         setPackages([]);
+        setError(error.message);
       } finally {
         setLoading(false);
       }
     };
 
     fetchPackages();
-  }, []);
+  }, [isEnglish]);
 
   // Veritabanı verilerini arayüze uygun şekilde dönüştür
   const displayPackages = packages.map(pkg => ({
-    id: pkg.id,
-    name: isEnglish ? pkg.title_en : pkg.title_tr,
+    id: pkg._id || pkg.id,
+    name: pkg.title, // API'den zaten dil bazında geliyor
     price: pkg.price.toString(),
-    duration: isEnglish ? (pkg.duration_en || '1 Month') : (pkg.duration_tr || '1 Ay'),
-    popular: pkg.is_popular || false,
-    shortDescription: isEnglish ? pkg.description_en : pkg.description_tr,
-    features: isEnglish ? pkg.features_en : pkg.features_tr,
-    color: pkg.is_popular ? 'success' : (pkg.id === 1 ? 'primary' : 'info'),
-    icon: pkg.icon || 'bi-heart'
+    duration: pkg.duration || (isEnglish ? '1 Month' : '1 Ay'),
+    popular: pkg.isPopular || false,
+    shortDescription: pkg.description,
+    features: Array.isArray(pkg.features) ? pkg.features : [],
+    color: pkg.isPopular ? 'success' : (pkg.category === 'premium' ? 'primary' : 'info'),
+    icon: pkg.icon || 'bi-heart',
+    category: pkg.category,
+    originalPrice: pkg.originalPrice,
+    discountPercentage: pkg.discountPercentage,
+    seoTitle: pkg.seoTitle,
+    seoDescription: pkg.seoDescription
   }));
 
-  // Supabase başarısız olursa yedek paketler
-  const fallbackPackages = [
-    {
-      id: 1,
-      name: isEnglish ? 'Basic Package' : 'Temel Paket',
-      price: '299',
-      duration: isEnglish ? '1 Month' : '1 Ay',
-      popular: false,
-      shortDescription: isEnglish ?
-        'Perfect for beginners starting their nutrition journey' :
-        'Beslenme yolculuğuna başlayanlar için mükemmel',
-      features: isEnglish ? [
-        'Initial consultation (60 min)',
-        'Personalized meal plan',
-        'Weekly check-ins',
-        'WhatsApp support',
-        'Basic recipes collection'
-      ] : [
-        'İlk konsültasyon (60 dk)',
-        'Kişiselleştirilmiş beslenme planı',
-        'Haftalık takip',
-        'WhatsApp desteği',
-        'Temel tarif koleksiyonu'
-      ],
-      color: 'primary',
-      icon: 'bi-heart'
-    },
-    {
-      id: 2,
-      name: isEnglish ? 'Premium Package' : 'Premium Paket',
-      price: '599',
-      duration: isEnglish ? '3 Months' : '3 Ay',
-      popular: true,
-      shortDescription: isEnglish ?
-        'Most comprehensive package for sustainable results' :
-        'Sürdürülebilir sonuçlar için en kapsamlı paket',
-      features: isEnglish ? [
-        'Extended consultation (90 min)',
-        'Comprehensive meal plan',
-        'Daily check-ins',
-        'Priority WhatsApp support',
-        'Recipe collection + meal prep guide',
-        'Supplement recommendations',
-        'Progress tracking tools'
-      ] : [
-        'Uzun konsültasyon (90 dk)',
-        'Kapsamlı beslenme planı',
-        'Günlük takip',
-        'Öncelikli WhatsApp desteği',
-        'Tarif koleksiyonu + meal prep rehberi',
-        'Supplement önerileri',
-        'İlerleme takip araçları'
-      ],
-      color: 'success',
-      icon: 'bi-star'
-    },
-    {
-      id: 3,
-      name: isEnglish ? 'VIP Package' : 'VIP Paket',
-      price: '1199',
-      duration: isEnglish ? '6 Months' : '6 Ay',
-      popular: false,
-      shortDescription: isEnglish ?
-        'Premium service with exclusive features and priority support' :
-        'Özel özellikler ve öncelikli destek ile premium hizmet',
-      features: isEnglish ? [
-        'Complete health & lifestyle assessment',
-        'Personalized nutrition & fitness program',
-        'Weekly one-on-one consultations',
-        'Advanced body composition tracking',
-        'Priority 24/7 support',
-        'Exclusive recipe collection',
-        'Monthly progress reports',
-        'Supplement protocol design',
-        'Meal delivery coordination',
-        'Family nutrition guidance'
-      ] : [
-        'Kapsamlı sağlık ve yaşam tarzı değerlendirmesi',
-        'Kişiselleştirilmiş beslenme ve fitness programı',
-        'Haftalık birebir konsültasyonlar',
-        'Gelişmiş vücut kompozisyon takibi',
-        'Öncelikli 7/24 destek',
-        'Özel tarif koleksiyonu',
-        'Aylık ilerleme raporları',
-        'Takviye protokol tasarımı',
-        'Yemek teslimat koordinasyonu',
-        'Aile beslenme rehberliği'
-      ],
-      color: 'warning',
-      icon: 'bi-gem'
-    }
-  ];
-
-  const packagesToShow = loading ? [] : (displayPackages.length > 0 ? displayPackages : fallbackPackages);
+  const packagesToShow = loading ? [] : displayPackages;
 
   const handlePackageClick = (packageData) => {
     setSelectedPackage(packageData);
@@ -182,6 +94,12 @@ const Packages = () => {
       <Helmet>
         <title>{t('packages.title')} - Oğuz Yolyapan</title>
         <meta name="description" content={t('packages.subtitle')} />
+        {selectedPackage && selectedPackage.seoTitle && (
+          <title>{selectedPackage.seoTitle} - Oğuz Yolyapan</title>
+        )}
+        {selectedPackage && selectedPackage.seoDescription && (
+          <meta name="description" content={selectedPackage.seoDescription} />
+        )}
       </Helmet>
 
       <div className="container py-5">
@@ -193,13 +111,22 @@ const Packages = () => {
         </div>
 
         <div className="row">
-          {!loading && packagesToShow.length === 0 && (
+          {error && (
+            <div className="col-12">
+              <div className="alert alert-danger mb-4">
+                <i className="bi bi-exclamation-triangle me-2"></i>
+                {error}
+              </div>
+            </div>
+          )}
+
+          {!loading && !error && packagesToShow.length === 0 && (
             <div className="col-12">
               <div className="alert alert-info mb-4">
                 <i className="bi bi-info-circle me-2"></i>
                 {isEnglish ? 
-                  'No packages found. Showing fallback packages.' : 
-                  'Paket bulunamadı. Yedek paketler gösteriliyor.'}
+                  'No packages found.' : 
+                  'Paket bulunamadı.'}
               </div>
             </div>
           )}
@@ -240,13 +167,13 @@ const Packages = () => {
                   </div>
                   <p className="text-muted mb-4">{pkg.shortDescription}</p>
                   <ul className="list-unstyled mb-4">
-                    {pkg.features.slice(0, 3).map((feature, idx) => (
+                    {Array.isArray(pkg.features) && pkg.features.slice(0, 3).map((feature, idx) => (
                       <li key={idx} className="mb-2">
                         <i className="bi bi-check-circle-fill text-success me-2"></i>
                         {feature}
                       </li>
                     ))}
-                    {pkg.features.length > 3 && (
+                    {Array.isArray(pkg.features) && pkg.features.length > 3 && (
                       <li className="text-muted">
                         <i className="bi bi-plus-circle me-2"></i>
                         {isEnglish ? `+${pkg.features.length - 3} more features` : `+${pkg.features.length - 3} özellik daha`}
@@ -323,7 +250,7 @@ const Packages = () => {
                     <div className="col-md-8">
                       <h6 className="mb-3">{isEnglish ? 'Package Features:' : 'Paket Özellikleri:'}</h6>
                       <ul className="list-unstyled">
-                        {selectedPackage.features.map((feature, idx) => (
+                        {Array.isArray(selectedPackage.features) && selectedPackage.features.map((feature, idx) => (
                           <li key={idx} className="mb-2">
                             <i className="bi bi-check-circle-fill text-success me-2"></i>
                             {feature}
