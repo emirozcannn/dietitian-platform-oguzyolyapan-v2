@@ -78,6 +78,15 @@ class ApiClient {
     return this.request(`/testimonials?${params}`);
   }
 
+  // 🔹 FAQ endpoints
+  async getFAQItems(language = 'tr') {
+    return this.request(`/faq?type=items&language=${language}`);
+  }
+
+  async getFAQCategories(language = 'tr') {
+    return this.request(`/faq?type=categories&language=${language}`);
+  }
+
   // 🔹 Blog endpoints
   async getAllPosts(language = 'tr', limit = null, categories = null, status = 'all') {
     const params = new URLSearchParams({

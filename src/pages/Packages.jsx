@@ -24,7 +24,7 @@ const Packages = () => {
         setLoading(true);
         setError(null);
 
-        const response = await apiClient.get(`/packages?lang=${isEnglish ? 'en' : 'tr'}`);
+        const response = await apiClient.getPackages(isEnglish ? 'en' : 'tr');
 
         if (!response.success) {
           throw new Error(response.message || 'Paketler yüklenemedi');
