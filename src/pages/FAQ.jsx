@@ -26,7 +26,7 @@ const FAQ = () => {
       setError(null);
 
       const itemsResponse = await apiClient.get('/faq?type=public');
-      const categoriesResponse = await apiClient.get('/faq/categories/public');
+      const categoriesResponse = await apiClient.get('/categories?type=public');
 
       if (!itemsResponse.success) {
         throw new Error(itemsResponse.message || 'FAQ verileri yüklenemedi');
