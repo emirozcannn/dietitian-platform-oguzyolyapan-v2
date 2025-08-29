@@ -49,8 +49,8 @@ const FAQManager = () => {
       setError(null);
 
       console.log('🔄 Loading FAQ data...');
-      const itemsResponse = await apiClient.get('/faq/items');
-      const categoriesResponse = await apiClient.get('/faq/categories');
+      const itemsResponse = await apiClient.getFAQItems('tr');
+      const categoriesResponse = await apiClient.getFAQCategories('tr');
 
       console.log('📦 Items Response:', itemsResponse);
       console.log('📂 Categories Response:', categoriesResponse);

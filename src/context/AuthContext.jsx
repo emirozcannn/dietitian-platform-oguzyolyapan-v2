@@ -1,5 +1,4 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { jwtDecode } from 'jwt-decode';
 import apiClient from '../lib/api.js';
 
 const AuthContext = createContext({});
@@ -25,29 +24,19 @@ export function AuthProvider({ children }) {
       setLoading(true);
       try {
         const savedToken = localStorage.getItem('auth_token');
-        if (savedToken) {
-          // Token'i doğrulamak yerine sadece decode et
-          const decoded = jwtDecode(savedToken);
-
-          // Token'in süresinin dolup dolmadığını kontrol et
-          if (decoded.exp * 1000 > Date.now()) {
-            // Kullanıcı bilgilerini API'den getir
-            const response = await apiClient.getProfile(decoded.userId);
-            const userData = response.data;
-            
-            setUser(userData);
-            setUserRole(userData.role);
-            setToken(savedToken);
-            console.log('✅ Auto-login successful:', userData.email);
-          } else {
-            // Token süresi dolmuş
-            console.warn('⚠️ Token expired, signing out.');
-            localStorage.removeItem('auth_token');
-          }
+        const savedUser = localStorage.getItem('auth_user');
+        
+        if (savedToken && savedUser) {
+          const userData = JSON.parse(savedUser);
+          setUser(userData);
+          setUserRole(userData.role);
+          setToken(savedToken);
+          console.log('✅ Auto-login successful:', userData.email);
         }
       } catch (error) {
         console.error('❌ Auto-login failed:', error.message);
         localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_user');
       } finally {
         setLoading(false);
       }
@@ -67,12 +56,16 @@ export function AuthProvider({ children }) {
         throw new Error(response.error || 'Login failed');
       }
       
-      setUser(response.data.user);
-      setUserRole(response.data.user.role);
-      // Token yok, sadece user data var
+      const userData = response.data.user;
+      setUser(userData);
+      setUserRole(userData.role);
       
-      console.log('✅ Login successful:', response.data.user.email);
-      return { data: { user: response.data.user }, error: null };
+      // LocalStorage'a kaydet
+      localStorage.setItem('auth_token', 'demo-token-' + userData.id);
+      localStorage.setItem('auth_user', JSON.stringify(userData));
+      
+      console.log('✅ Login successful:', userData.email);
+      return { data: { user: userData }, error: null };
       
     } catch (error) {
       console.error('❌ Login failed:', error.message);
@@ -120,6 +113,7 @@ export function AuthProvider({ children }) {
     setUserRole(null);
     setToken(null);
     localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_user');
     return { error: null };
   };
 
