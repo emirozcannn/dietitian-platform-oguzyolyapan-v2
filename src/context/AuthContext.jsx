@@ -63,12 +63,13 @@ export function AuthProvider({ children }) {
     try {
       const response = await apiClient.login(email, password);
       
+      if (!response.success) {
+        throw new Error(response.error || 'Login failed');
+      }
+      
       setUser(response.data.user);
       setUserRole(response.data.user.role);
-      setToken(response.data.token);
-      
-      // Token'i localStorage'a kaydet
-      localStorage.setItem('auth_token', response.data.token);
+      // Token yok, sadece user data var
       
       console.log('✅ Login successful:', response.data.user.email);
       return { data: { user: response.data.user }, error: null };
@@ -91,12 +92,13 @@ export function AuthProvider({ children }) {
     try {
       const response = await apiClient.register(userData);
       
+      if (!response.success) {
+        throw new Error(response.error || 'Registration failed');
+      }
+      
       setUser(response.data.user);
       setUserRole(response.data.user.role);
-      setToken(response.data.token);
-      
-      // Token'i localStorage'a kaydet
-      localStorage.setItem('auth_token', response.data.token);
+      // Token yok, sadece user data var
       
       console.log('✅ Registration successful:', response.data.user.email);
       return { data: { user: response.data.user }, error: null };
