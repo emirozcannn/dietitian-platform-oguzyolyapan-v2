@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Helmet } from 'react-helmet-async';
-import { supabase } from '../lib/supabaseClient';
 import { sendEmail } from '../lib/emailService';
+import apiClient from '../lib/api';
 
 const Contact = () => {
   const { t, i18n } = useTranslation();
@@ -27,13 +27,7 @@ const Contact = () => {
 
   const loadCategories = async () => {
     try {
-      const { data, error } = await supabase
-        .from('contact_categories')
-        .select('*')
-        .eq('is_active', true)
-        .order('order_index');
-
-      if (error) throw error;
+      const data = await apiClient.get('/categories?type=public');
       setCategories(data || []);
     } catch (error) {
       console.error('Error loading categories:', error);
@@ -54,18 +48,16 @@ const Contact = () => {
     setError(null);
     
     try {
-      const { error } = await supabase
-        .from('contact_messages')
-        .insert([{
-          name: formData.name,
-          email: formData.email,
-          phone: formData.phone,
-          subject: formData.subject,
-          message: formData.message,
-          category_id: formData.category_id || null
-        }]);
+      const response = await apiClient.post('/contact', {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        subject: formData.subject,
+        message: formData.message,
+        category_id: formData.category_id || null
+      });
 
-      if (error) throw error;
+      if (!response.success) throw new Error(response.error || 'Message could not be sent');
 
       // Send confirmation email to user
       try {
