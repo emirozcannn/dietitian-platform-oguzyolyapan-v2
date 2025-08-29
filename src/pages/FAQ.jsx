@@ -25,7 +25,7 @@ const FAQ = () => {
       setLoading(true);
       setError(null);
 
-      const itemsResponse = await apiClient.get('/faq/items/public');
+      const itemsResponse = await apiClient.get('/faq?type=public');
       const categoriesResponse = await apiClient.get('/faq/categories/public');
 
       if (!itemsResponse.success) {

@@ -64,18 +64,18 @@ class ApiClient {
   }
 
   async getPopularPackages(language = 'tr') {
-    return this.request(`/packages/popular?language=${language}`);
+    return this.request(`/packages?type=popular&language=${language}`);
   }
 
   async getHomeFeaturedPackages(language = 'tr') {
-    return this.request(`/packages/home-featured?language=${language}`);
+    return this.request(`/packages?type=home-featured&language=${language}`);
   }
 
   // 🔹 Testimonials endpoints
   async getApprovedTestimonials(language = 'tr', limit = null) {
-    const params = new URLSearchParams({ language });
+    const params = new URLSearchParams({ language, type: 'approved' });
     if (limit) params.append('limit', limit);
-    return this.request(`/testimonials/approved?${params}`);
+    return this.request(`/testimonials?${params}`);
   }
 
   // 🔹 Blog endpoints
@@ -97,19 +97,20 @@ class ApiClient {
   async getPublishedPosts(language = 'tr', limit = null, categories = null) {
     const params = new URLSearchParams({
       language,
+      type: 'published',
       ...(limit && { limit }),
       ...(categories && { categories })
     });
     
-    return this.request(`/blog/published?${params}`);
+    return this.request(`/blog?${params}`);
   }
 
   async getFeaturedPosts(language = 'tr', limit = 3) {
-    return this.request(`/blog/featured?language=${language}&limit=${limit}`);
+    return this.request(`/blog?type=featured&language=${language}&limit=${limit}`);
   }
 
   async getPopularPosts(language = 'tr', limit = 5) {
-    return this.request(`/blog/popular?language=${language}&limit=${limit}`);
+    return this.request(`/blog?type=popular&language=${language}&limit=${limit}`);
   }
 
   async getPostBySlug(slug, language = 'tr') {
