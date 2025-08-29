@@ -41,21 +41,24 @@ class ApiClient {
 
   // 🔹 Auth endpoints
   async login(email, password) {
-    return this.request('/auth/login', {
+    return this.request('/auth?type=login', {
       method: 'POST',
       body: { email, password }
     });
   }
 
   async register(userData) {
-    return this.request('/auth/register', {
+    return this.request('/auth?type=register', {
       method: 'POST',
       body: userData
     });
   }
 
   async getProfile(userId) {
-    return this.request(`/auth/profile/${userId}`);
+    return this.request('/auth?type=profile', {
+      method: 'POST',
+      body: { userId }
+    });
   }
 
   // 🔹 Packages endpoints
