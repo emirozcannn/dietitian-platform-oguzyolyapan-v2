@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { adminUserService } from '../../lib/adminService';
-import { supabase } from '../../lib/initSupabase';
 
 const UserManager = ({ isEnglish }) => {
   const [users, setUsers] = useState([]);
@@ -117,37 +116,10 @@ const UserManager = ({ isEnglish }) => {
     setError('');
     setSuccess('');
     try {
-      // 1. Create user in Supabase Auth
-      const { data, error } = await supabase.auth.admin.createUser({
-        email: newUser.email,
-        password: newUser.password,
-        user_metadata: {
-          first_name: newUser.firstName,
-          last_name: newUser.lastName,
-          role: newUser.role
-        },
-        email_confirm: true
-      });
-      if (error) throw error;
-
-      // 2. Create profile row
-      const userId = data.user.id;
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert([{
-          id: userId,
-          email: newUser.email,
-          first_name: newUser.firstName,
-          last_name: newUser.lastName,
-          role: newUser.role,
-          created_at: new Date().toISOString()
-        }]);
-      if (profileError) throw profileError;
-
-      setSuccess(isEnglish ? 'User created successfully' : 'Kullanıcı başarıyla oluşturuldu');
+      // Demo: Just show success message
+      setSuccess(isEnglish ? 'User created successfully (Demo)' : 'Kullanıcı başarıyla oluşturuldu (Demo)');
       setNewUser({ email: '', password: '', firstName: '', lastName: '', role: 'client' });
       setShowAddUser(false);
-      fetchUsers();
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError(err.message || (isEnglish ? 'Failed to create user' : 'Kullanıcı oluşturulamadı'));
