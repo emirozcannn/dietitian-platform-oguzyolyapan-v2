@@ -67,6 +67,10 @@ class ApiClient {
     return this.request(`/packages/popular?language=${language}`);
   }
 
+  async getHomeFeaturedPackages(language = 'tr') {
+    return this.request(`/packages/home-featured?language=${language}`);
+  }
+
   // 🔹 Testimonials endpoints
   async getApprovedTestimonials(language = 'tr', limit = null) {
     const params = new URLSearchParams({ language });
@@ -116,22 +120,115 @@ class ApiClient {
     return this.request(`/blog/${id}`);
   }
 
+  // Create new blog post
   async createPost(postData) {
-    const response = await this.request('/blog', {
-      method: 'POST',
-      body: postData
-    });
-    if (!response.success) throw new Error(response.message || 'Blog yazısı oluşturulamadı');
-    return response;
+    try {
+      console.log('Creating post with data:', postData);
+      
+      // Validate required fields
+      if (!postData.title_tr || !postData.title_en) {
+        throw new Error('Başlık gerekli (hem Türkçe hem İngilizce)');
+      }
+      
+      if (!postData.content_tr || !postData.content_en) {
+        throw new Error('İçerik gerekli (hem Türkçe hem İngilizce)');
+      }
+
+      // Transform data to match backend expectations
+      const transformedData = {
+        title: {
+          tr: postData.title_tr,
+          en: postData.title_en
+        },
+        slug: {
+          tr: postData.slug_tr || this.generateSlug(postData.title_tr),
+          en: postData.slug_en || this.generateSlug(postData.title_en)
+        },
+        content: {
+          tr: postData.content_tr,
+          en: postData.content_en
+        },
+        excerpt: {
+          tr: postData.excerpt_tr || '',
+          en: postData.excerpt_en || ''
+        },
+        imageUrl: postData.featured_image || '',
+        imageAltText: {
+          tr: postData.image_alt_tr || '',
+          en: postData.image_alt_en || ''
+        },
+        status: postData.status || 'draft',
+        isFeatured: Boolean(postData.is_featured),
+        allowComments: postData.allow_comments !== false,
+        readTime: parseInt(postData.read_time) || 5,
+        authorId: postData.authorId || '674bc89c5fc7529b6a2b3c3b',
+        // Categories geçici olarak boş bırak
+        categories: [],
+        tags: {
+          tr: Array.isArray(postData.tags_tr) ? postData.tags_tr : 
+              (typeof postData.tags_tr === 'string' ? postData.tags_tr.split(',').map(t => t.trim()).filter(t => t) : []),
+          en: Array.isArray(postData.tags_en) ? postData.tags_en : 
+              (typeof postData.tags_en === 'string' ? postData.tags_en.split(',').map(t => t.trim()).filter(t => t) : [])
+        },
+        metaTitle: {
+          tr: postData.meta_title_tr || '',
+          en: postData.meta_title_en || ''
+        },
+        metaDescription: {
+          tr: postData.meta_description_tr || '',
+          en: postData.meta_description_en || ''
+        }
+      };
+
+      console.log('Transformed data:', transformedData);
+
+      const response = await this.request('/blog', {
+        method: 'POST',
+        body: transformedData
+      });
+      
+      console.log('Create post response:', response);
+      
+      return { success: true, data: response };
+    } catch (error) {
+      console.error('Create post error:', error);
+      return { success: false, error: error.message };
+    }
   }
 
+  // Helper function to generate slug
+  generateSlug(text) {
+    if (!text) return '';
+    return text
+      .toLowerCase()
+      .replace(/[çÇ]/g, 'c')
+      .replace(/[ğĞ]/g, 'g')
+      .replace(/[ıI]/g, 'i')
+      .replace(/[öÖ]/g, 'o')
+      .replace(/[şŞ]/g, 's')
+      .replace(/[üÜ]/g, 'u')
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .trim() + '-' + Date.now();
+  }
+
+  // Update existing blog post
   async updatePost(id, postData) {
-    const response = await this.request(`/blog/${id}`, {
-      method: 'PUT',
-      body: postData
-    });
-    if (!response.success) throw new Error(response.message || 'Blog yazısı güncellenemedi');
-    return response;
+    try {
+      console.log('Updating post:', id, 'with data:', postData);
+      
+      const response = await this.request(`/blog/${id}`, {
+        method: 'PUT',
+        body: postData
+      });
+      console.log('Update post response:', response);
+      
+      return { success: true, data: response };
+    } catch (error) {
+      console.error('Update post error:', error);
+      return { success: false, error: error.message };
+    }
   }
 
   async deletePost(id) {

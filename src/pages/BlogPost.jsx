@@ -50,31 +50,43 @@ const BlogPost = () => {
     const fetchPost = async () => {
       try {
         setLoading(true);
+        setError(null);
         
-        // Fetch post by slug
-        const response = await apiClient.getPostBySlug(slug, isEnglish ? 'en' : 'tr');
+        console.log('Fetching post with slug:', slug, 'language:', isEnglish ? 'en' : 'tr');
+        
+        // Try to fetch post by slug - first try current language
+        let response;
+        try {
+          response = await apiClient.getPostBySlug(slug, isEnglish ? 'en' : 'tr');
+        } catch (error) {
+          console.log('Failed with current language, trying other language...');
+          // If not found in current language, try the other language
+          response = await apiClient.getPostBySlug(slug, isEnglish ? 'tr' : 'en');
+        }
         
         if (!response.success || !response.data) {
           console.error('Post fetch error:', response.error);
-          setError('Blog yazısı bulunamadı');
+          setError(isEnglish ? 'Blog post not found' : 'Blog yazısı bulunamadı');
           return;
         }
 
         const postData = response.data;
+        console.log('Fetched post data:', postData);
+        
         setPost(postData);
-        setViewCount(postData.view_count || 0);
-        setLikeCount(postData.like_count || 0);
+        setViewCount(postData.view_count || postData.viewCount || 0);
+        setLikeCount(postData.like_count || postData.likeCount || 0);
 
         // Increment view count
         try {
-          await apiClient.incrementPostView(postData._id);
+          await apiClient.incrementPostView(postData.id || postData._id);
         } catch (error) {
           console.error('View tracking error:', error);
         }
 
         // Load related posts
         try {
-          const relatedResponse = await apiClient.getRelatedPosts(postData._id, isEnglish ? 'en' : 'tr');
+          const relatedResponse = await apiClient.getRelatedPosts(postData.id || postData._id, isEnglish ? 'en' : 'tr');
           if (relatedResponse.success) {
             setRelatedPosts(relatedResponse.data || []);
           }
@@ -95,13 +107,21 @@ const BlogPost = () => {
           }
         }
 
-        // Mock data for tags and comments
-        setTags([]);
+        // Set tags from post data
+        console.log('Post data tags:', postData.tags, postData.tags_tr, postData.tags_en);
+        
+        const currentTags = isEnglish ? 
+          (postData.tags?.en || postData.tags_en || []) : 
+          (postData.tags?.tr || postData.tags_tr || []);
+        
+        console.log('Current tags for display:', currentTags);
+        setTags(Array.isArray(currentTags) ? currentTags : []);
+        
         setComments([]);
 
       } catch (error) {
         console.error('Error fetching post:', error);
-        setError('Bir hata oluştu');
+        setError(isEnglish ? 'An error occurred' : 'Bir hata oluştu');
       } finally {
         setLoading(false);
       }
@@ -179,9 +199,28 @@ const BlogPost = () => {
     );
   }
 
-  const title = isEnglish ? post.title_en : post.title_tr;
-  const content = isEnglish ? post.content_en : post.content_tr;
-  const excerpt = isEnglish ? post.excerpt_en : post.excerpt_tr;
+  // Get title and content in correct language with fallbacks
+  const title = isEnglish ? 
+    (post.title_en || post.title?.en || post.title_tr || post.title?.tr) : 
+    (post.title_tr || post.title?.tr || post.title_en || post.title?.en);
+    
+  const content = isEnglish ? 
+    (post.content_en || post.content?.en || post.content_tr || post.content?.tr) : 
+    (post.content_tr || post.content?.tr || post.content_en || post.content?.en);
+    
+  const excerpt = isEnglish ? 
+    (post.excerpt_en || post.excerpt?.en || post.excerpt_tr || post.excerpt?.tr) : 
+    (post.excerpt_tr || post.excerpt?.tr || post.excerpt_en || post.excerpt?.en);
+
+  // Get SEO meta data
+  const metaTitle = isEnglish ?
+    (post.meta_title_en || post.metaTitle?.en || title) :
+    (post.meta_title_tr || post.metaTitle?.tr || title);
+    
+  const metaDescription = isEnglish ?
+    (post.meta_description_en || post.metaDescription?.en || excerpt) :
+    (post.meta_description_tr || post.metaDescription?.tr || excerpt);
+    
   const categoryName = category 
     ? (isEnglish ? category.name?.en || category.name : category.name?.tr || category.name)
     : (isEnglish ? 'General' : 'Genel');
@@ -189,12 +228,20 @@ const BlogPost = () => {
   return (
     <>
       <Helmet>
-        <title>{title} - Oğuz Yolyapan</title>
-        <meta name="description" content={excerpt} />
-        <meta property="og:title" content={title} />
-        <meta property="og:description" content={excerpt} />
-        <meta property="og:image" content={formatImage(post.image_url)} />
+        <title>{metaTitle} - Oğuz Yolyapan</title>
+        <meta name="description" content={metaDescription} />
+        <meta name="keywords" content={tags.join(', ')} />
+        <meta property="og:title" content={metaTitle} />
+        <meta property="og:description" content={metaDescription} />
+        <meta property="og:image" content={formatImage(post.imageUrl || post.image_url)} />
         <meta property="og:type" content="article" />
+        <meta property="article:author" content={post.author_name || 'Oğuz Yolyapan'} />
+        <meta property="article:published_time" content={post.publishedAt || post.published_at} />
+        <meta property="article:tag" content={tags.join(', ')} />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={metaTitle} />
+        <meta name="twitter:description" content={metaDescription} />
+        <meta name="twitter:image" content={formatImage(post.imageUrl || post.image_url)} />
       </Helmet>
 
       <article className="blog-post">
@@ -326,11 +373,11 @@ const BlogPost = () => {
                       <div className="d-flex flex-wrap gap-2">
                         {tags.map((tag, index) => (
                           <span
-                            key={index}
+                            key={`tag-${index}-${tag}`}
                             className="badge bg-light text-dark border rounded-pill px-3 py-2 fw-normal"
                             style={{ fontSize: '0.85rem' }}
                           >
-                            #{isEnglish ? tag.name_en : tag.name_tr}
+                            #{tag}
                           </span>
                         ))}
                       </div>

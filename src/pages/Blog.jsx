@@ -7,6 +7,7 @@ import '../styles/blog.css';
 
 const Blog = () => {
   const { i18n } = useTranslation();
+  const isEnglish = i18n.language === 'en';
   const [posts, setPosts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -18,7 +19,32 @@ const Blog = () => {
   const [featuredPosts, setFeaturedPosts] = useState([]);
   const [popularPosts, setPopularPosts] = useState([]);
 
-  const isEnglish = i18n.language === 'en';
+  // Helper function to get post slug with fallback
+  const getPostSlug = (post) => {
+    if (isEnglish) {
+      return post.slug_en || post.slug?.en || post.slug_tr || post.slug?.tr || 'untitled';
+    } else {
+      return post.slug_tr || post.slug?.tr || post.slug_en || post.slug?.en || 'untitled';
+    }
+  };
+
+  // Helper function to get post title with fallback
+  const getPostTitle = (post) => {
+    if (isEnglish) {
+      return post.title_en || post.title?.en || post.title_tr || post.title?.tr || 'Untitled';
+    } else {
+      return post.title_tr || post.title?.tr || post.title_en || post.title?.en || 'Başlıksız';
+    }
+  };
+
+  // Helper function to get post excerpt with fallback
+  const getPostExcerpt = (post) => {
+    if (isEnglish) {
+      return post.excerpt_en || post.excerpt?.en || post.excerpt_tr || post.excerpt?.tr || '';
+    } else {
+      return post.excerpt_tr || post.excerpt?.tr || post.excerpt_en || post.excerpt?.en || '';
+    }
+  };
 
   // Format image URL for MongoDB/External images
   const formatImage = (imageUrl) => {
@@ -437,11 +463,11 @@ const Blog = () => {
                         <div className="position-absolute bottom-0 start-0 w-100 px-4 pb-4" style={{ zIndex: 4 }}>
                           <h3 className="fw-bold text-white mb-2" style={{ fontSize: '1.6rem', textShadow: '0 2px 12px rgba(0,0,0,0.25)' }}>
                             <Link
-                              to={`/blog/${isEnglish ? post.slug_en : post.slug_tr}`}
+                              to={`/blog/${getPostSlug(post)}`}
                               className="text-decoration-none text-white"
                               onClick={() => handlePostView(post._id)}
                             >
-                              {isEnglish ? post.title_en : post.title_tr}
+                              {getPostTitle(post)}
                             </Link>
                           </h3>
                           <p className="lead text-white-50 mb-0" style={{ textShadow: '0 1px 8px rgba(0,0,0,0.18)', fontSize: '1rem' }}>{isEnglish ? post.excerpt_en : post.excerpt_tr}</p>

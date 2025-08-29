@@ -1,5 +1,6 @@
 import express from 'express';
 import { blog } from '../src/lib/mongoClient.js';
+import Post from '../src/models/Post.js';
 
 const router = express.Router();
 
@@ -109,29 +110,112 @@ router.get('/post/:slug', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const postData = req.body;
+    console.log('Received post data:', postData);
 
-    if (!postData.title_tr || !postData.title_en) {
+    // Validate required fields - check nested structure
+    const titleTr = postData.title?.tr || postData.title_tr;
+    const titleEn = postData.title?.en || postData.title_en;
+    
+    if (!titleTr || !titleEn) {
       return res.status(400).json({
         success: false,
         message: 'Başlık gerekli (hem Türkçe hem İngilizce)'
       });
     }
 
-    const data = await blog.create(postData);
+    const contentTr = postData.content?.tr || postData.content_tr;
+    const contentEn = postData.content?.en || postData.content_en;
+    
+    if (!contentTr || !contentEn) {
+      return res.status(400).json({
+        success: false,
+        message: 'İçerik gerekli (hem Türkçe hem İngilizce)'
+      });
+    }
+
+    // Ensure proper data structure for MongoDB
+    const mongoData = {
+      title: {
+        tr: titleTr,
+        en: titleEn
+      },
+      slug: {
+        tr: postData.slug?.tr || postData.slug_tr || generateSlug(titleTr),
+        en: postData.slug?.en || postData.slug_en || generateSlug(titleEn)
+      },
+      content: {
+        tr: contentTr,
+        en: contentEn
+      },
+      excerpt: {
+        tr: postData.excerpt?.tr || postData.excerpt_tr || '',
+        en: postData.excerpt?.en || postData.excerpt_en || ''
+      },
+      imageUrl: postData.imageUrl || postData.featured_image || '',
+      imageAltText: {
+        tr: postData.imageAltText?.tr || postData.image_alt_tr || '',
+        en: postData.imageAltText?.en || postData.image_alt_en || ''
+      },
+      status: postData.status || 'draft',
+      isFeatured: Boolean(postData.isFeatured || postData.is_featured),
+      allowComments: postData.allowComments !== false && postData.allow_comments !== false,
+      readTime: parseInt(postData.readTime || postData.read_time) || 5,
+      authorId: postData.authorId || '674bc89c5fc7529b6a2b3c3b',
+      categories: [], // Geçici olarak boş
+      tags: {
+        tr: Array.isArray(postData.tags?.tr) ? postData.tags.tr : 
+            (Array.isArray(postData.tags_tr) ? postData.tags_tr : 
+            (typeof postData.tags_tr === 'string' ? postData.tags_tr.split(',').map(t => t.trim()).filter(t => t) : [])),
+        en: Array.isArray(postData.tags?.en) ? postData.tags.en : 
+            (Array.isArray(postData.tags_en) ? postData.tags_en : 
+            (typeof postData.tags_en === 'string' ? postData.tags_en.split(',').map(t => t.trim()).filter(t => t) : []))
+      },
+      metaTitle: {
+        tr: postData.metaTitle?.tr || postData.meta_title_tr || '',
+        en: postData.metaTitle?.en || postData.meta_title_en || ''
+      },
+      metaDescription: {
+        tr: postData.metaDescription?.tr || postData.meta_description_tr || '',
+        en: postData.metaDescription?.en || postData.meta_description_en || ''
+      }
+    };
+
+    console.log('Processed mongo data:', mongoData);
+
+    // Create new post directly with MongoDB model
+    const newPost = new Post(mongoData);
+    const savedPost = await newPost.save();
 
     res.status(201).json({
       success: true,
       message: 'Blog yazısı başarıyla oluşturuldu',
-      data
+      data: savedPost
     });
   } catch (error) {
-    console.error('❌ Blog post creation error:', error.message);
+    console.error('API Error (/blog):', error.message);
     res.status(400).json({
       success: false,
       message: error.message
     });
   }
 });
+
+// Helper function to generate slug
+function generateSlug(text) {
+  if (!text) return '';
+  return text
+    .toLowerCase()
+    .replace(/[çÇ]/g, 'c')
+    .replace(/[ğĞ]/g, 'g')
+    .replace(/[ıI]/g, 'i')
+    .replace(/[öÖ]/g, 'o')
+    .replace(/[şŞ]/g, 's')
+    .replace(/[üÜ]/g, 'u')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .trim() + '-' + Date.now();
+}
 
 // Update post (Admin)
 router.put('/:id', async (req, res) => {

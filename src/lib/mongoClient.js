@@ -253,8 +253,8 @@ export const blog = {
       meta_title_en: post.metaTitle?.en || '',
       meta_description_tr: post.metaDescription?.tr || '',
       meta_description_en: post.metaDescription?.en || '',
-      meta_keywords_tr: post.seo?.keywords?.tr || '',
-      meta_keywords_en: post.seo?.keywords?.en || '',
+      meta_keywords_tr: post.metaKeywords?.tr || '',
+      meta_keywords_en: post.metaKeywords?.en || '',
       status: post.status || 'draft',
       is_featured: post.isFeatured || false,
       published_at: post.publishedAt,
@@ -295,6 +295,29 @@ export const blog = {
         .replace(/^-|-$/g, '');
     };
 
+    // Categories array'ini düzgün format'a çevir
+    let categoriesArray = [];
+    if (formData.category_id && formData.category_id !== '') {
+      // Eğer string ise array'e çevir
+      if (typeof formData.category_id === 'string') {
+        categoriesArray = [formData.category_id];
+      } else if (Array.isArray(formData.category_id)) {
+        categoriesArray = formData.category_id.filter(id => id && id.trim() !== '');
+      }
+    }
+
+    // Tags array'lerini düzgün format'a çevir
+    const formatTags = (tags) => {
+      if (!tags) return [];
+      if (typeof tags === 'string') {
+        return tags.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
+      }
+      if (Array.isArray(tags)) {
+        return tags.filter(tag => tag && tag.trim() !== '');
+      }
+      return [];
+    };
+
     return {
       title: {
         tr: formData.title_tr || '',
@@ -312,45 +335,32 @@ export const blog = {
         tr: formData.excerpt_tr || '',
         en: formData.excerpt_en || ''
       },
-      imageUrl: formData.image_url || '',
+      imageUrl: formData.featured_image || formData.image_url || '',
       imageAltText: {
-        tr: formData.image_alt_text || '',
-        en: formData.image_alt_text || ''
+        tr: formData.image_alt_tr || '',
+        en: formData.image_alt_en || ''
       },
-      categories: formData.category_id ? [formData.category_id] : [],
+      categories: categoriesArray, // Düzeltildi
       tags: {
-        tr: formData.tags_tr || [],
-        en: formData.tags_en || []
+        tr: formatTags(formData.tags_tr),
+        en: formatTags(formData.tags_en)
       },
-      seo: {
-        title: {
-          tr: formData.meta_title_tr || '',
-          en: formData.meta_title_en || ''
-        },
-        description: {
-          tr: formData.meta_description_tr || '',
-          en: formData.meta_description_en || ''
-        },
-        keywords: {
-          tr: formData.meta_keywords_tr || '',
-          en: formData.meta_keywords_en || ''
-        }
+      metaTitle: {
+        tr: formData.meta_title_tr || '',
+        en: formData.meta_title_en || ''
       },
-      // Gerçek admin ID'si - daha sonra giriş yapmış kullanıcı ID'si ile değiştirilecek
-      authorId: '674bc89c5fc7529b6a2b3c3b', // admin@oguzyolyapan.com'un gerçek ID'si
+      metaDescription: {
+        tr: formData.meta_description_tr || '',
+        en: formData.meta_description_en || ''
+      },
+      // Author ID'yi doğru şekilde ayarla
+      authorId: formData.authorId || '674bc89c5fc7529b6a2b3c3b', // Admin ID
       status: formData.status || 'draft',
-      isFeatured: formData.is_featured || false,
-      publishedAt: formData.published_at || null,
-      scheduledAt: formData.scheduled_at || null,
-      author: {
-        name: formData.author_name || 'Oğuz Yolyapan',
-        bio: {
-          tr: formData.author_bio_tr || '',
-          en: formData.author_bio_en || ''
-        },
-        image: formData.author_image || ''
-      },
-      readTime: formData.read_time || 5
+      isFeatured: Boolean(formData.is_featured),
+      publishedAt: formData.published_at ? new Date(formData.published_at) : null,
+      scheduledAt: formData.scheduled_at ? new Date(formData.scheduled_at) : null,
+      readTime: parseInt(formData.read_time) || 5,
+      allowComments: Boolean(formData.allow_comments)
     };
   },
 
@@ -418,16 +428,40 @@ export const blog = {
   getBySlug: async (slug, language = 'tr') => {
     await ensureConnection();
     
+    console.log('Searching for post with slug:', slug, 'language:', language);
+    
+    // First try to find post with the slug in the requested language
     const slugField = language === 'en' ? 'slug.en' : 'slug.tr';
-    const post = await Post.findOne({ 
+    let post = await Post.findOne({ 
       [slugField]: slug,
       status: 'published'
-    });
+    }).populate('authorId', 'firstName lastName email');
+    
+    // If not found in requested language, try the other language
+    if (!post) {
+      const otherSlugField = language === 'en' ? 'slug.tr' : 'slug.en';
+      post = await Post.findOne({ 
+        [otherSlugField]: slug,
+        status: 'published'
+      }).populate('authorId', 'firstName lastName email');
+    }
+    
+    // If still not found, try searching in both slug fields (for compatibility)
+    if (!post) {
+      post = await Post.findOne({ 
+        $or: [
+          { 'slug.tr': slug },
+          { 'slug.en': slug }
+        ],
+        status: 'published'
+      }).populate('authorId', 'firstName lastName email');
+    }
     
     if (!post) {
       throw new Error('Blog yazısı bulunamadı');
     }
     
+    console.log('Found post:', post.title);
     return blog.transformPostForUI(post.toJSON());
   },
 

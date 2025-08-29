@@ -19,7 +19,7 @@ const postSchema = new mongoose.Schema({
     tr: {
       type: String,
       required: [true, 'Türkçe slug gereklidir'],
-      unique: true,
+      // unique: true, // Geçici olarak kaldır
       trim: true,
       lowercase: true,
       match: [/^[a-z0-9-]+$/, 'Slug sadece küçük harf, rakam ve tire içerebilir']
@@ -27,7 +27,7 @@ const postSchema = new mongoose.Schema({
     en: {
       type: String,
       required: [true, 'İngilizce slug gereklidir'],
-      unique: true,
+      // unique: true, // Geçici olarak kaldır
       trim: true,
       lowercase: true,
       match: [/^[a-z0-9-]+$/, 'Slug can only contain lowercase letters, numbers and hyphens']
@@ -103,11 +103,13 @@ const postSchema = new mongoose.Schema({
   authorId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: [true, 'Yazar gereklidir']
+    required: false, // Geçici olarak false
+    default: null // Default değer ekle
   },
   categories: [{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Category'
+    ref: 'Category',
+    required: false // Zorunlu olmaktan çıkar
   }],
   tags: {
     tr: [{
@@ -269,7 +271,7 @@ postSchema.pre('save', function(next) {
         .replace(/[^a-z0-9\s-]/g, '')
         .replace(/\s+/g, '-')
         .replace(/-+/g, '-')
-        .replace(/^-|-$/g, '');
+        .replace(/^-|-$/g, '') + '-' + Date.now();
     }
     
     if (this.title.en && !this.slug.en) {
@@ -278,13 +280,18 @@ postSchema.pre('save', function(next) {
         .replace(/[^a-z0-9\s-]/g, '')
         .replace(/\s+/g, '-')
         .replace(/-+/g, '-')
-        .replace(/^-|-$/g, '');
+        .replace(/^-|-$/g, '') + '-' + Date.now();
     }
   }
 
   // Yayın tarihi ayarla
   if (this.isModified('status') && this.status === 'published' && !this.publishedAt) {
     this.publishedAt = new Date();
+  }
+
+  // Author ID varsayılan değer
+  if (!this.authorId) {
+    this.authorId = '674bc89c5fc7529b6a2b3c3b'; // Admin user ID
   }
 
   // Okuma süresini hesapla

@@ -14,7 +14,7 @@ import Testimonials from '../components/Testimonials';
 
 
 const Home = () => {
-  const { t, i18n } = useTranslation();
+  const { i18n } = useTranslation();
   const isEnglish = i18n.language === 'en';
   const [isVisible, setIsVisible] = useState({});
   const [blogPosts, setBlogPosts] = useState([]);
@@ -27,33 +27,60 @@ const Home = () => {
   useEffect(() => {
     const fetchBlogPosts = async () => {
       try {
-        // API'den en son 3 blog yazısını çek
-        const response = await apiClient.getFeaturedPosts(i18n.language, 3);
-        setBlogPosts(response.data || []);
+        const response = await apiClient.getFeaturedPosts(i18n.language === 'en' ? 'en' : 'tr', 3);
+        
+        if (response.success) {
+          const formattedPosts = (response.data || []).map(post => ({
+            id: post._id || post.id,
+            title_tr: post.title_tr || post.title,
+            title_en: post.title_en || post.title,
+            excerpt_tr: post.excerpt_tr || post.excerpt,
+            excerpt_en: post.excerpt_en || post.excerpt,
+            slug_tr: post.slug_tr || post.slug,
+            slug_en: post.slug_en || post.slug,
+            image_url: post.imageUrl || post.image_url,
+            published_at: post.publishedAt || post.published_at,
+            read_time: post.readTime || post.read_time || 3,
+            categories: post.categories
+          }));
+          setBlogPosts(formattedPosts);
+        }
       } catch (error) {
         console.error('Blog posts fetch error:', error);
         // Fallback to demo data
         setBlogPosts([
           {
             id: 'sample-1',
-            title: { tr: 'Sağlıklı Yaz Beslenmesi', en: 'Healthy Summer Nutrition' },
-            excerpt: { tr: 'Sıcak yaz aylarında optimal beslenmeyi sürdürmek için temel öneriler...', en: 'Essential tips for maintaining optimal nutrition during hot summer months...' },
-            slug: { tr: 'saglikli-yaz-beslenmesi', en: 'healthy-summer-nutrition' },
-            imageUrl: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=400&h=250&fit=crop'
+            title_tr: 'Sağlıklı Yaz Beslenmesi',
+            title_en: 'Healthy Summer Nutrition',
+            excerpt_tr: 'Sıcak yaz aylarında optimal beslenmeyi sürdürmek için temel öneriler...',
+            excerpt_en: 'Essential tips for maintaining optimal nutrition during hot summer months...',
+            slug_tr: 'saglikli-yaz-beslenmesi',
+            slug_en: 'healthy-summer-nutrition',
+            image_url: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=400&h=250&fit=crop',
+            read_time: 3
           },
           {
             id: 'sample-2',
-            title: { tr: 'Kilo Verme Stratejileri', en: 'Weight Loss Strategies' },
-            excerpt: { tr: 'Sürdürülebilir kilo yönetimi için kanıta dayalı yaklaşımlar...', en: 'Evidence-based approaches for sustainable weight management...' },
-            slug: { tr: 'kilo-verme-stratejileri', en: 'weight-loss-strategies' },
-            imageUrl: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=250&fit=crop'
+            title_tr: 'Kilo Verme Stratejileri',
+            title_en: 'Weight Loss Strategies',
+            excerpt_tr: 'Sürdürülebilir kilo yönetimi için kanıta dayalı yaklaşımlar...',
+            excerpt_en: 'Evidence-based approaches for sustainable weight management...',
+            slug_tr: 'kilo-verme-stratejileri',
+            slug_en: 'weight-loss-strategies',
+            image_url: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=250&fit=crop',
+            read_time: 5
           },
           {
             id: 'sample-3',
-            title: { tr: 'Spor Beslenmesi Rehberi', en: 'Sports Nutrition Guide' },
-            excerpt: { tr: 'Doğru beslenme zamanlaması ile atletik performansınızı optimize edin...', en: 'Optimize your athletic performance with proper nutrition timing...' },
-            slug: { tr: 'spor-beslenmesi-rehberi', en: 'sports-nutrition-guide' },
-            imageUrl: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=400&h=250&fit=crop'
+            title_tr: 'Spor Beslenmesi Rehberi',
+            title_en: 'Sports Nutrition Guide',
+            excerpt_tr: 'Doğru beslenme zamanlaması ile atletik performansınızı optimize edin...',
+            excerpt_en: 'Optimize your athletic performance with proper nutrition timing...',
+            slug_tr: 'spor-beslenmesi-rehberi',
+            slug_en: 'sports-nutrition-guide',
+            image_url: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=400&h=250&fit=crop',
+            read_time: 4
           }
         ]);
       }
@@ -66,15 +93,26 @@ const Home = () => {
   useEffect(() => {
     const fetchHomePackages = async () => {
       try {
-        const response = await apiClient.getPopularPackages(i18n.language);
-        // Ensure each package has a 'popular' property
-        const normalized = (response.data || []).map(pkg => ({
-          ...pkg,
-          popular: pkg.isPopular || false
-        }));
-        setHomePackages(normalized.slice(0, 3)); // Sadece ilk 3'ünü al
+        const response = await apiClient.getHomeFeaturedPackages(i18n.language === 'en' ? 'en' : 'tr');
+        
+        if (response.success) {
+          const normalized = (response.data || []).map(pkg => ({
+            ...pkg,
+            id: pkg._id || pkg.id,
+            popular: pkg.isPopular || false,
+            title_tr: pkg.title,
+            title_en: pkg.title,
+            description_tr: pkg.description,
+            description_en: pkg.description,
+            duration_tr: pkg.duration,
+            duration_en: pkg.duration
+          }));
+          setHomePackages(normalized); // home-featured endpoint'i zaten 3 paket döndürüyor
+        }
       } catch (error) {
         console.error('Error loading packages:', error);
+        // Fallback - boş array yerine demo data kullanabilirsiniz
+        setHomePackages([]);
       } finally {
         setLoadingPackages(false);
       }
@@ -143,51 +181,6 @@ const Home = () => {
     elements.forEach((el) => observer.observe(el));
     return () => observer.disconnect();
   }, []);
-
-  const features = [
-    {
-      icon: 'bi-award',
-      title: isEnglish ? 'Certified Expert' : 'Sertifikalı Uzman',
-      description: isEnglish
-        ? 'Led by a licensed dietitian with years of clinical experience.'
-        : 'Yılların klinik tecrübesine sahip lisanslı bir diyetisyen tarafından yönetilmektedir.'
-    },
-    {
-      icon: 'bi-person-check',
-      title: isEnglish ? 'Tailored Plans' : 'Kişiye Özel Planlar',
-      description: isEnglish
-        ? 'Nutrition programs designed uniquely for your body, goals and lifestyle.'
-        : 'Vücudunuza, hedeflerinize ve yaşam tarzınıza özel beslenme programları.'
-    },
-    {
-      icon: 'bi-heart-pulse',
-      title: isEnglish ? 'Holistic Approach' : 'Bütüncül Yaklaşım',
-      description: isEnglish
-        ? 'We focus not just on food, but your overall wellbeing and habits.'
-        : 'Sadece yiyeceklere değil, genel sağlığınıza ve alışkanlıklarınıza odaklanırız.'
-    },
-    {
-      icon: 'bi-lightning-charge',
-      title: isEnglish ? 'Fast Results' : 'Hızlı Sonuçlar',
-      description: isEnglish
-        ? 'Smart tracking and regular reviews to help you progress faster.'
-        : 'Akıllı takip ve düzenli kontrollerle daha hızlı ilerlemenizi sağlarız.'
-    },
-    {
-      icon: 'bi-chat-dots',
-      title: isEnglish ? 'Full-Time Support' : 'Tam Zamanlı Destek',
-      description: isEnglish
-        ? 'Direct access to your dietitian via WhatsApp and email.'
-        : 'WhatsApp ve e-posta ile doğrudan diyetisyeninize ulaşın.'
-    },
-    {
-      icon: 'bi-graph-up-arrow',
-      title: isEnglish ? 'Trackable Progress' : 'Takip Edilebilir Gelişim',
-      description: isEnglish
-        ? 'Custom reports and visuals to measure your success every step of the way.'
-        : 'Başarılarınızı adım adım ölçen özel raporlar ve grafiklerle takip edin.'
-    }
-  ];
 
   // Buton metni alternatifleri:
   const nutritionTestBtnText = isEnglish
@@ -410,7 +403,7 @@ const Home = () => {
                       className="h4 fw-bold mb-3"
                       style={{ color: pkg.popular ? 'white' : '#1f2937' }}
                     >
-                      {isEnglish ? pkg.title_en : pkg.title_tr}
+                      {pkg.title}
                     </h3>
                     
                     <div className="mb-3">
@@ -424,7 +417,7 @@ const Home = () => {
                         className="small mt-1"
                         style={{ color: pkg.popular ? 'rgba(255,255,255,0.8)' : '#6b7280' }}
                       >
-                        {isEnglish ? pkg.duration_en || '1 Month' : pkg.duration_tr || '1 Ay'}
+                        {pkg.duration}
                       </div>
                     </div>
                     
@@ -435,7 +428,7 @@ const Home = () => {
                         lineHeight: 1.6
                       }}
                     >
-                      {isEnglish ? pkg.description_en : pkg.description_tr}
+                      {pkg.description}
                     </p>
                     
                     <Link
@@ -670,7 +663,7 @@ const Home = () => {
                       <img
                         src={formatImage(post.image_url)}
                         className="w-100 h-100 object-fit-cover"
-                        alt={post.image_alt_text || (isEnglish ? (post.title_en || post.title) : post.title)}
+                        alt={post.image_alt_text || (isEnglish ? (post.title_en || post.title) : (post.title_tr || post.title))}
                         loading="lazy"
                         style={{
                           transition: 'transform 0.3s ease'
@@ -728,7 +721,7 @@ const Home = () => {
                       {/* Title */}
                       <h3 className="h5 fw-bold mb-3 lh-sm">
                         <Link 
-                          to={getLocalizedPath(`/blog/${isEnglish ? post.slug_en : post.slug_tr}`)}
+                          to={getLocalizedPath(`/blog/${isEnglish ? (post.slug_en || post.slug) : (post.slug_tr || post.slug)}`)}
                           className="text-decoration-none text-dark stretched-link"
                           style={{
                             display: '-webkit-box',
@@ -737,7 +730,7 @@ const Home = () => {
                             overflow: 'hidden'
                           }}
                         >
-                          {isEnglish ? post.title_en : post.title_tr}
+                          {isEnglish ? (post.title_en || post.title) : (post.title_tr || post.title)}
                         </Link>
                       </h3>
                       
@@ -752,7 +745,7 @@ const Home = () => {
                         }}
                       >
                         {formatExcerpt(
-                          isEnglish ? post.excerpt_en : post.excerpt_tr,
+                          isEnglish ? (post.excerpt_en || post.excerpt) : (post.excerpt_tr || post.excerpt),
                           140
                         )}
                       </p>

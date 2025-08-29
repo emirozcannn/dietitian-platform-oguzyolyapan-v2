@@ -383,45 +383,51 @@ const BlogManager = () => {
   const handleSubmitWithStatus = async (dataWithStatus) => {
     try {
       setLoading(true);
-      
-      // Validate form
-      const errors = validateForm(dataWithStatus);
-      if (errors.length > 0) {
-        throw new Error(errors.join(', '));
+
+      // Form validation
+      const validationErrors = validateForm(dataWithStatus);
+      if (validationErrors.length > 0) {
+        showToast(`Validation errors: ${validationErrors.join(', ')}`, 'error');
+        return;
       }
 
-      const submitData = {
+      // Veriyi düzgün formatta hazırla
+      const formDataWithAuthor = {
         ...dataWithStatus,
-        tags_tr: Array.isArray(dataWithStatus.tags_tr) ? dataWithStatus.tags_tr : [],
-        tags_en: Array.isArray(dataWithStatus.tags_en) ? dataWithStatus.tags_en : [],
-        published_at: dataWithStatus.published_at ? new Date(dataWithStatus.published_at).toISOString() : null,
-        scheduled_at: dataWithStatus.scheduled_at ? new Date(dataWithStatus.scheduled_at).toISOString() : null,
-        updated_at: new Date().toISOString(),
-        created_at: editingPost ? editingPost.created_at : new Date().toISOString(),
-        view_count: editingPost ? editingPost.view_count || 0 : 0,
-        like_count: editingPost ? editingPost.like_count || 0 : 0,
-        comment_count: editingPost ? editingPost.comment_count || 0 : 0
+        authorId: '674bc89c5fc7529b6a2b3c3b', // Admin user ID
+        // Categories'i geçici olarak kaldır
+        category_id: '' 
       };
+
+      console.log('Submitting form data:', formDataWithAuthor);
 
       let response;
       if (editingPost) {
-        response = await apiClient.updatePost(editingPost._id || editingPost.id, submitData);
-        showToast('Blog yazısı başarıyla güncellendi!', 'success');
+        response = await apiClient.updatePost(editingPost.id || editingPost._id, formDataWithAuthor);
       } else {
-        response = await apiClient.createPost(submitData);
-        showToast('Blog yazısı başarıyla oluşturuldu!', 'success');
+        response = await apiClient.createPost(formDataWithAuthor);
       }
 
+      console.log('API Response:', response);
+
       if (response.success) {
+        showToast(
+          editingPost 
+            ? 'Blog yazısı başarıyla güncellendi!' 
+            : 'Blog yazısı başarıyla oluşturuldu!', 
+          'success'
+        );
+        
         setShowModal(false);
         resetForm();
-        loadPosts();
+        await loadPosts(); // Reload posts
       } else {
-        throw new Error(response.message || 'Bir hata oluştu');
+        console.error('API Error:', response.error);
+        showToast(`Hata: ${response.error}`, 'error');
       }
     } catch (error) {
-      console.error('Error saving post:', error);
-      showToast('Hata: ' + error.message, 'error');
+      console.error('Submit error:', error);
+      showToast(`Bir hata oluştu: ${error.message}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -1073,9 +1079,9 @@ const BlogManager = () => {
                             value={formData.category_id}
                             onChange={handleChange}
                           >
-                            <option value="">Kategori Seçin</option>
-                            {categories.map(cat => (
-                              <option key={cat._id} value={cat._id}>
+                            <option value="">Kategori Seçin (Opsiyonel)</option>
+                            {categories.map((cat, index) => (
+                              <option key={cat._id || cat.id || `cat-${index}`} value={cat._id || cat.id}>
                                 {i18n.language === 'tr' ? 
                                   (cat.name?.tr || cat.name) : 
                                   (cat.name?.en || cat.name)

@@ -88,6 +88,42 @@ router.get('/popular', async (req, res) => {
   }
 });
 
+// Get home featured packages (Top 3 packages for homepage)
+router.get('/home-featured', async (req, res) => {
+  try {
+    const { lang = 'tr' } = req.query;
+    
+    const packages = await Package
+      .find({ isActive: true })
+      .sort({ isPopular: -1, orderIndex: 1, createdAt: -1 })
+      .limit(3)
+      .lean();
+
+    const formattedPackages = packages.map(pkg => ({
+      _id: pkg._id,
+      id: pkg._id,
+      title: lang === 'en' ? pkg.title.en : pkg.title.tr,
+      description: lang === 'en' ? pkg.description.en : pkg.description.tr,
+      price: pkg.price,
+      duration: lang === 'en' ? pkg.duration.en : pkg.duration.tr,
+      icon: pkg.icon,
+      isPopular: pkg.isPopular,
+      category: pkg.category
+    }));
+
+    res.json({
+      success: true,
+      data: formattedPackages
+    });
+  } catch (error) {
+    console.error('Error fetching home featured packages:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
 // Get single package by ID
 router.get('/:id', async (req, res) => {
   try {
