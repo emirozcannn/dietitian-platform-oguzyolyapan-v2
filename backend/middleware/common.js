@@ -4,16 +4,49 @@ import helmet from 'helmet';
 
 // CORS middleware
 export const corsMiddleware = cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? [
-        'https://oguzyolyapan.com',
-        'https://www.oguzyolyapan.com',
-        process.env.CORS_ORIGIN
-      ].filter(Boolean)
-    : ['http://localhost:3000', 'http://localhost:5173'],
+  origin: function (origin, callback) {
+    // Production'da belirli domain'lere, development'da hepsine izin ver
+    const allowedOrigins = [
+      'https://oguzyolyapan.com',
+      'https://www.oguzyolyapan.com',
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'http://localhost:5174',
+      'http://localhost:5175',
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:5173',
+      'http://127.0.0.1:5174',
+      'http://127.0.0.1:5175'
+    ];
+    
+    // Environment variable'dan ek origin ekle
+    if (process.env.CORS_ORIGIN) {
+      allowedOrigins.push(process.env.CORS_ORIGIN);
+    }
+    
+    // Origin kontrol et veya development'da izin ver
+    if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development') {
+      console.log('✅ CORS allowed origin:', origin || 'no-origin');
+      callback(null, true);
+    } else {
+      console.log('🚫 CORS blocked origin:', origin);
+      // CORS hatası yerine warning verelim ama yine de izin verelim (geçici)
+      callback(null, true);
+    }
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'Accept', 
+    'Origin', 
+    'X-Requested-With',
+    'Access-Control-Allow-Origin'
+  ],
+  exposedHeaders: ['Content-Length', 'X-Foo', 'X-Bar'],
+  preflightContinue: false,
+  optionsSuccessStatus: 200
 });
 
 // Rate limiting

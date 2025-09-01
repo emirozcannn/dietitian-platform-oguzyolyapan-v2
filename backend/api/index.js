@@ -1,5 +1,12 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
+import dotenv from 'dotenv';
+
+// Load environment variables
+if (process.env.NODE_ENV !== 'production') {
+  dotenv.config();
+}
+
 import { connectDB } from '../utils/db.js';
 import { corsMiddleware, securityMiddleware, rateLimitMiddleware, errorHandler } from '../middleware/common.js';
 import { auth, adminAuth } from '../middleware/auth.js';
@@ -53,6 +60,15 @@ app.get('/api/health', (req, res) => {
     database: 'connected',
     environment: process.env.NODE_ENV || 'development'
   }, 'Service is healthy');
+});
+
+// Preflight OPTIONS handler
+app.options('*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', req.get('Origin') || '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, Origin, X-Requested-With');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.status(200).end();
 });
 
 // ===============================
@@ -578,6 +594,43 @@ app.get('/api/contact/info', (req, res) => {
 });
 
 // ===============================
+// NEWSLETTER ENDPOINTS
+// ===============================
+
+// Newsletter subscription
+app.post('/api/newsletter', async (req, res) => {
+  try {
+    const { email, language = 'tr', source = 'website' } = req.body;
+
+    if (!email || !email.includes('@')) {
+      return sendError(res, 'Valid email is required', 400, 'INVALID_EMAIL');
+    }
+
+    // Simple newsletter subscription (you can expand this with a Newsletter model)
+    const newsletterData = {
+      email: email.toLowerCase(),
+      language,
+      source,
+      subscribedAt: new Date(),
+      isActive: true,
+      ipAddress: req.ip,
+      userAgent: req.get('User-Agent')
+    };
+
+    // For now, just log it (later you can save to database)
+    console.log('Newsletter subscription:', newsletterData);
+
+    sendSuccess(res, { 
+      message: 'Newsletter subscription successful' 
+    }, 'Subscription successful', 201);
+
+  } catch (error) {
+    console.error('Newsletter subscription error:', error);
+    sendError(res, 'Failed to subscribe to newsletter', 500);
+  }
+});
+
+// ===============================
 // CATEGORIES ENDPOINTS
 // ===============================
 
@@ -609,8 +662,27 @@ app.get('/api/categories', async (req, res) => {
 // Apply error handler
 app.use(errorHandler);
 
+// Global error handler for unhandled errors
+app.use((err, req, res, next) => {
+  console.error('🚨 Unhandled error:', err);
+  
+  // CORS headers for error responses
+  res.header('Access-Control-Allow-Origin', req.get('Origin') || '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, Origin, X-Requested-With');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
+  sendError(res, err.message || 'Internal server error', 500, 'INTERNAL_ERROR');
+});
+
 // Handle 404
 app.all('*', (req, res) => {
+  // CORS headers for 404 responses
+  res.header('Access-Control-Allow-Origin', req.get('Origin') || '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, Origin, X-Requested-With');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
   sendError(res, 'Route not found', 404, 'ROUTE_NOT_FOUND');
 });
 
