@@ -126,11 +126,11 @@ class ApiClient {
   }
 
   async getPostBySlug(slug, language = 'tr') {
-    return this.request(`/blog/post/${slug}?language=${language}`);
+    return this.request(`/blog?slug=${slug}&language=${language}`);
   }
 
   async getPostById(id) {
-    return this.request(`/blog/${id}`);
+    return this.request(`/blog?id=${id}`);
   }
 
   // Create new blog post
@@ -231,7 +231,7 @@ class ApiClient {
     try {
       console.log('Updating post:', id, 'with data:', postData);
       
-      const response = await this.request(`/blog/${id}`, {
+      const response = await this.request(`/blog?id=${id}`, {
         method: 'PUT',
         body: postData
       });
@@ -245,7 +245,7 @@ class ApiClient {
   }
 
   async deletePost(id) {
-    const response = await this.request(`/blog/${id}`, {
+    const response = await this.request(`/blog?id=${id}`, {
       method: 'DELETE'
     });
     if (!response.success) throw new Error(response.message || 'Blog yazısı silinemedi');
@@ -286,15 +286,15 @@ class ApiClient {
 
   // 🔹 Blog extra endpoints
   async incrementPostView(postId) {
-    return this.request(`/blog/${postId}/view`, { method: 'POST' });
+    return this.request(`/blog?id=${postId}&action=view`, { method: 'POST' });
   }
 
   async getRelatedPosts(postId, language = 'tr') {
-    return this.request(`/blog/${postId}/related?language=${language}`);
+    return this.request(`/blog?id=${postId}&action=related&language=${language}`);
   }
 
   async likePost(postId) {
-    return this.request(`/blog/${postId}/like`, { method: 'POST' });
+    return this.request(`/blog?id=${postId}&action=like`, { method: 'POST' });
   }
 
   async getCategories() {
