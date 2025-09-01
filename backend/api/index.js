@@ -9,7 +9,17 @@ async function connectToDatabase() {
   }
 
   try {
-    await mongoose.connect(process.env.MONGODB_URI);
+    // Ensure proper MongoDB connection string
+    const connectionString = process.env.MONGODB_URI.includes('?') 
+      ? `${process.env.MONGODB_URI}&retryWrites=true&w=majority`
+      : `${process.env.MONGODB_URI}?retryWrites=true&w=majority`;
+      
+    await mongoose.connect(connectionString, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+    });
     isConnected = true;
     console.log('✅ MongoDB connected');
   } catch (error) {
@@ -310,8 +320,20 @@ export default async function handler(req, res) {
   console.log(`🚀 API Request: ${req.method} ${req.url}`);
 
   try {
-    // Connect to MongoDB
-    await connectToDatabase();
+    // Connect to MongoDB (optional)
+    let isMongoConnected = false;
+    try {
+      if (process.env.MONGODB_URI) {
+        await connectToDatabase();
+        isMongoConnected = true;
+        console.log('✅ MongoDB connected');
+      } else {
+        console.log('⚠️ MongoDB URI not found, using default data');
+      }
+    } catch (mongoError) {
+      console.log('⚠️ MongoDB connection failed, using default data:', mongoError.message);
+      isMongoConnected = false;
+    }
 
     const { pathname } = new URL(req.url, `http://${req.headers.host}`);
 
@@ -320,6 +342,7 @@ export default async function handler(req, res) {
         return res.status(200).json({
           success: true,
           message: 'API is working',
+          mongodb: isMongoConnected ? 'connected' : 'using_defaults',
           timestamp: new Date().toISOString()
         });
 
