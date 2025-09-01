@@ -83,6 +83,21 @@ class ApiClient {
   async getHealth() {
     return this.request('/api/health');
   }
+
+  // Home page content
+  async getHomeContent(language = 'tr') {
+    return this.request(`/api/home?language=${language}`);
+  }
+
+  // About page content
+  async getAboutContent(language = 'tr') {
+    return this.request(`/api/about?language=${language}`);
+  }
+
+  // Contact page content
+  async getContactInfo(language = 'tr') {
+    return this.request(`/api/contact?language=${language}`);
+  }
 }
 
 // Singleton instance
