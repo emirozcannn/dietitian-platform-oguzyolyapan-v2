@@ -1,0 +1,14 @@
+{
+  "name": "oguz-dietitian-backend",
+  "type": "module",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Backend API for Oğuz Yolyapan Dietitian Platform",
+  "scripts": {
+    "build": "echo 'Build completed'",
+    "start": "echo 'Start completed'"
+  },
+  "dependencies": {
+    "mongoose": "^8.18.0"
+  }
+}
