@@ -370,7 +370,7 @@ async function handleBlog(req, res) {
   }
 
   try {
-    const { type, limit } = req.query;
+    const { type, limit, language } = req.query;
     
     let query = { status: 'published' };
     if (type === 'featured') {
@@ -385,20 +385,35 @@ async function handleBlog(req, res) {
 
     const posts = await mongoQuery;
 
+    // Frontend'in beklediği format
     const transformedPosts = posts.map(post => ({
       _id: post._id,
-      title: post.title,
-      excerpt: post.excerpt,
-      slug: post.slug,
-      featured_image: post.featured_image,
+      id: post._id,
+      title: post.title?.tr || '',
+      title_tr: post.title?.tr || '',
+      title_en: post.title?.en || '',
+      excerpt: post.excerpt?.tr || '',
+      excerpt_tr: post.excerpt?.tr || '',
+      excerpt_en: post.excerpt?.en || '',
+      slug: post.slug?.tr || '',
+      slug_tr: post.slug?.tr || '',
+      slug_en: post.slug?.en || '',
+      featured_image: post.featured_image || '',
+      image_url: post.featured_image || '',
+      imageUrl: post.featured_image || '',
       category_id: post.category_id,
       tags: post.tags,
+      tags_tr: post.tags?.tr || [],
+      tags_en: post.tags?.en || [],
       is_featured: post.is_featured,
       status: post.status,
       view_count: post.view_count,
       like_count: post.like_count,
       read_time: post.read_time,
-      publishedAt: post.publishedAt
+      readTime: post.read_time,
+      publishedAt: post.publishedAt,
+      published_at: post.publishedAt,
+      categories: [] // Blog sayfası için categories array bekliyor
     }));
 
     return res.status(200).json({
@@ -423,6 +438,65 @@ async function handleCategories(req, res) {
   try {
     const categories = await Category.find({ is_active: true })
       .sort({ order_index: 1 });
+
+    // Eğer database'de kategori yoksa default'ları dön
+    if (categories.length === 0) {
+      const defaultCategories = [
+        {
+          _id: 'default-1',
+          name: {
+            tr: 'Beslenme İpuçları',
+            en: 'Nutrition Tips'
+          },
+          slug: 'beslenme-ipuclari',
+          color: '#4CAF50',
+          icon: 'nutrition',
+          order_index: 1,
+          is_active: true
+        },
+        {
+          _id: 'default-2',
+          name: {
+            tr: 'Kilo Yönetimi',
+            en: 'Weight Management'
+          },
+          slug: 'kilo-yonetimi',
+          color: '#2196F3',
+          icon: 'weight',
+          order_index: 2,
+          is_active: true
+        },
+        {
+          _id: 'default-3',
+          name: {
+            tr: 'Sağlıklı Yaşam',
+            en: 'Healthy Living'
+          },
+          slug: 'saglikli-yasam',
+          color: '#FF9800',
+          icon: 'health',
+          order_index: 3,
+          is_active: true
+        },
+        {
+          _id: 'default-4',
+          name: {
+            tr: 'Spor Beslenmesi',
+            en: 'Sports Nutrition'
+          },
+          slug: 'spor-beslenmesi',
+          color: '#E91E63',
+          icon: 'sports',
+          order_index: 4,
+          is_active: true
+        }
+      ];
+
+      return res.status(200).json({
+        success: true,
+        data: defaultCategories
+      });
+    }
 
     const transformedCategories = categories.map(cat => ({
       _id: cat._id,
@@ -454,7 +528,7 @@ async function handlePackages(req, res) {
   }
 
   try {
-    const { type } = req.query;
+    const { type, language } = req.query;
     
     let query = {};
     if (type === 'featured' || type === 'home-featured') {
@@ -466,9 +540,145 @@ async function handlePackages(req, res) {
 
     const packages = await Package.find(query);
 
+    // Eğer database'de paket yoksa default'ları dön
+    if (packages.length === 0) {
+      const defaultPackages = [
+        {
+          _id: 'default-1',
+          id: 'default-1',
+          name: {
+            tr: 'Temel Beslenme Danışmanlığı',
+            en: 'Basic Nutrition Consultation'
+          },
+          title: {
+            tr: 'Temel Beslenme Danışmanlığı',
+            en: 'Basic Nutrition Consultation'
+          },
+          description: {
+            tr: 'Kişiselleştirilmiş beslenme programı ve haftalık takip hizmeti',
+            en: 'Personalized nutrition program and weekly follow-up service'
+          },
+          price: 299,
+          originalPrice: 399,
+          duration: '4 hafta',
+          features: [
+            { tr: 'Kişisel beslenme programı', en: 'Personal nutrition program' },
+            { tr: 'Haftalık takip', en: 'Weekly follow-up' },
+            { tr: 'WhatsApp desteği', en: 'WhatsApp support' },
+            { tr: 'Alışveriş listesi', en: 'Shopping list' }
+          ],
+          featured: true,
+          popular: false,
+          isPopular: false,
+          category: 'basic',
+          icon: '🥗',
+          color: '#4CAF50',
+          title_tr: 'Temel Beslenme Danışmanlığı',
+          title_en: 'Basic Nutrition Consultation',
+          description_tr: 'Kişiselleştirilmiş beslenme programı ve haftalık takip hizmeti',
+          description_en: 'Personalized nutrition program and weekly follow-up service',
+          duration_tr: '4 hafta',
+          duration_en: '4 weeks'
+        },
+        {
+          _id: 'default-2',
+          id: 'default-2',
+          name: {
+            tr: 'Premium Beslenme Programı',
+            en: 'Premium Nutrition Program'
+          },
+          title: {
+            tr: 'Premium Beslenme Programı',
+            en: 'Premium Nutrition Program'
+          },
+          description: {
+            tr: 'Kapsamlı beslenme danışmanlığı ve sürekli mentörlük',
+            en: 'Comprehensive nutrition consultation and continuous mentoring'
+          },
+          price: 599,
+          originalPrice: 799,
+          duration: '12 hafta',
+          features: [
+            { tr: 'Detaylı vücut analizi', en: 'Detailed body analysis' },
+            { tr: 'Kişisel beslenme programı', en: 'Personal nutrition program' },
+            { tr: '7/24 WhatsApp desteği', en: '24/7 WhatsApp support' },
+            { tr: 'Aylık vücut ölçümleri', en: 'Monthly body measurements' },
+            { tr: 'Egzersiz programı', en: 'Exercise program' }
+          ],
+          featured: true,
+          popular: true,
+          isPopular: true,
+          category: 'premium',
+          icon: '⭐',
+          color: '#FF9800',
+          title_tr: 'Premium Beslenme Programı',
+          title_en: 'Premium Nutrition Program',
+          description_tr: 'Kapsamlı beslenme danışmanlığı ve sürekli mentörlük',
+          description_en: 'Comprehensive nutrition consultation and continuous mentoring',
+          duration_tr: '12 hafta',
+          duration_en: '12 weeks'
+        },
+        {
+          _id: 'default-3',
+          id: 'default-3',
+          name: {
+            tr: 'Spor Beslenmesi',
+            en: 'Sports Nutrition'
+          },
+          title: {
+            tr: 'Spor Beslenmesi',
+            en: 'Sports Nutrition'
+          },
+          description: {
+            tr: 'Sporcu performansını artırmaya yönelik özel beslenme programı',
+            en: 'Special nutrition program to improve athlete performance'
+          },
+          price: 499,
+          originalPrice: 699,
+          duration: '8 hafta',
+          features: [
+            { tr: 'Spor öncesi/sonrası beslenme', en: 'Pre/post workout nutrition' },
+            { tr: 'Performans artırıcı programlar', en: 'Performance enhancing programs' },
+            { tr: 'Supplement tavsiyeleri', en: 'Supplement recommendations' },
+            { tr: 'Antrenör ile koordinasyon', en: 'Coordination with trainer' }
+          ],
+          featured: false,
+          popular: false,
+          isPopular: false,
+          category: 'sports',
+          icon: '🏃‍♂️',
+          color: '#2196F3',
+          title_tr: 'Spor Beslenmesi',
+          title_en: 'Sports Nutrition',
+          description_tr: 'Sporcu performansını artırmaya yönelik özel beslenme programı',
+          description_en: 'Special nutrition program to improve athlete performance',
+          duration_tr: '8 hafta',
+          duration_en: '8 weeks'
+        }
+      ];
+
+      // Query filtrelerine göre default paketleri filtrele
+      let filteredPackages = defaultPackages;
+      
+      if (type === 'featured' || type === 'home-featured') {
+        filteredPackages = defaultPackages.filter(pkg => pkg.featured);
+      }
+      if (type === 'popular') {
+        filteredPackages = defaultPackages.filter(pkg => pkg.popular);
+      }
+
+      return res.status(200).json({
+        success: true,
+        data: filteredPackages
+      });
+    }
+
+    // Frontend'in beklediği format
     const transformedPackages = packages.map(pkg => ({
       _id: pkg._id,
+      id: pkg._id,
       name: pkg.name,
+      title: pkg.name, // Frontend title bekliyor
       description: pkg.description,
       price: pkg.price,
       originalPrice: pkg.originalPrice,
@@ -476,9 +686,17 @@ async function handlePackages(req, res) {
       features: pkg.features,
       featured: pkg.featured,
       popular: pkg.popular,
+      isPopular: pkg.popular, // Frontend isPopular da bekliyor
       category: pkg.category,
       icon: pkg.icon,
-      color: pkg.color
+      color: pkg.color,
+      // Ek alanlar frontend için
+      title_tr: pkg.name?.tr || '',
+      title_en: pkg.name?.en || '',
+      description_tr: pkg.description?.tr || '',
+      description_en: pkg.description?.en || '',
+      duration_tr: pkg.duration,
+      duration_en: pkg.duration
     }));
 
     return res.status(200).json({
@@ -512,6 +730,61 @@ async function handleTestimonials(req, res) {
     }
 
     const testimonials = await mongoQuery;
+
+    // Eğer database'de testimonial yoksa default'ları dön
+    if (testimonials.length === 0) {
+      const defaultTestimonials = [
+        {
+          _id: 'default-1',
+          name: 'Ayşe K.',
+          title: 'Müşteri',
+          content: {
+            tr: 'Oğuz Bey ile çalışmaya başladıktan sonra hem sağlığım hem de enerjim çok arttı. Beslenme programı tamamen kişiselleştirilmişti ve çok pratikti.',
+            en: 'After I started working with Oğuz, both my health and energy increased a lot. The nutrition program was completely personalized and very practical.'
+          },
+          rating: 5,
+          avatar: null,
+          status: 'approved',
+          createdAt: new Date('2024-01-15')
+        },
+        {
+          _id: 'default-2',
+          name: 'Mehmet A.',
+          title: 'Sporcu',
+          content: {
+            tr: '6 ayda 15 kilo verdim ve performansımı artırdım. Oğuz Bey\'in yaklaşımı çok profesyonel ve etkili.',
+            en: 'I lost 15 kg in 6 months and increased my performance. Oğuz\'s approach is very professional and effective.'
+          },
+          rating: 5,
+          avatar: null,
+          status: 'approved',
+          createdAt: new Date('2024-02-10')
+        },
+        {
+          _id: 'default-3',
+          name: 'Zeynep T.',
+          title: 'Öğretmen',
+          content: {
+            tr: 'Yıllardır denediğim diyetlerden farklı olarak bu sefer gerçekten kalıcı sonuçlar aldım. Teşekkürler Oğuz Bey!',
+            en: 'Unlike the diets I have tried for years, this time I got really permanent results. Thank you Oğuz!'
+          },
+          rating: 5,
+          avatar: null,
+          status: 'approved',
+          createdAt: new Date('2024-03-05')
+        }
+      ];
+
+      // Limit uygulaması
+      const limitedTestimonials = limit && !isNaN(parseInt(limit)) 
+        ? defaultTestimonials.slice(0, parseInt(limit))
+        : defaultTestimonials;
+
+      return res.status(200).json({
+        success: true,
+        data: limitedTestimonials
+      });
+    }
 
     const transformedTestimonials = testimonials.map(test => ({
       _id: test._id,
@@ -552,6 +825,59 @@ async function handleFAQ(req, res) {
     }
 
     const faqs = await FAQ.find(query).sort({ order_index: 1 });
+
+    // Eğer database'de FAQ yoksa default FAQ'ları dön
+    if (faqs.length === 0) {
+      const defaultFAQs = [
+        {
+          _id: 'default-1',
+          question: {
+            tr: 'Beslenme danışmanlığı nasıl yapılır?',
+            en: 'How is nutrition consultation conducted?'
+          },
+          answer: {
+            tr: 'Beslenme danışmanlığı kişisel ihtiyaçlarınıza göre özel olarak hazırlanır. İlk görüşmede detaylı anamnez alınır ve size özel beslenme programı hazırlanır.',
+            en: 'Nutrition consultation is prepared specifically according to your personal needs. In the first interview, detailed anamnesis is taken and a special nutrition program is prepared for you.'
+          },
+          category: 'general',
+          order_index: 1,
+          is_active: true
+        },
+        {
+          _id: 'default-2',
+          question: {
+            tr: 'Kaç günde sonuç alırım?',
+            en: 'How many days will I see results?'
+          },
+          answer: {
+            tr: 'Beslenme programına uyum sağladığınızda ilk 2-3 hafta içinde değişimleri fark etmeye başlarsınız. Kalıcı sonuçlar için 3-6 aylık süreç önerilir.',
+            en: 'When you adapt to the nutrition program, you will start to notice changes within the first 2-3 weeks. A 3-6 month process is recommended for permanent results.'
+          },
+          category: 'general',
+          order_index: 2,
+          is_active: true
+        },
+        {
+          _id: 'default-3',
+          question: {
+            tr: 'Online danışmanlık nasıl çalışır?',
+            en: 'How does online consultation work?'
+          },
+          answer: {
+            tr: 'Online danışmanlık video görüşme üzerinden yapılır. Tüm belgeler dijital ortamda paylaşılır ve WhatsApp üzerinden sürekli iletişim halinde oluruz.',
+            en: 'Online consultation is conducted via video call. All documents are shared digitally and we stay in constant communication via WhatsApp.'
+          },
+          category: 'online',
+          order_index: 3,
+          is_active: true
+        }
+      ];
+
+      return res.status(200).json({
+        success: true,
+        data: defaultFAQs
+      });
+    }
 
     const transformedFAQs = faqs.map(faq => ({
       _id: faq._id,
@@ -738,96 +1064,132 @@ async function handleAbout(req, res) {
 
 // Contact Page Handler
 async function handleContact(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method Not Allowed' });
-  }
+  if (req.method === 'GET') {
+    try {
+      const contactInfo = await Contact.findOne({ is_active: true })
+        .sort({ last_updated: -1 });
 
-  try {
-    const contactInfo = await Contact.findOne({ is_active: true })
-      .sort({ last_updated: -1 });
+      if (!contactInfo) {
+        // Return default content if nothing in database
+        const defaultContent = {
+          office_info: {
+            name: {
+              tr: 'Oğuz Yolyapan Beslenme Danışmanlığı',
+              en: 'Oğuz Yolyapan Nutrition Consulting'
+            },
+            address: {
+              tr: 'Ataşehir, İstanbul',
+              en: 'Ataşehir, Istanbul'
+            },
+            city: 'İstanbul',
+            country: {
+              tr: 'Türkiye',
+              en: 'Turkey'
+            }
+          },
+          contact_details: {
+            phone: '+90 555 123 4567',
+            whatsapp: '+90 555 123 4567',
+            email: 'info@oguzyolyapan.com',
+            website: 'www.oguzyolyapan.com'
+          },
+          social_media: {
+            instagram: '@oguzyolyapan',
+            linkedin: 'oguzyolyapan'
+          },
+          office_hours: [
+            {
+              day: { tr: 'Pazartesi', en: 'Monday' },
+              hours: { tr: '09:00 - 18:00', en: '09:00 - 18:00' },
+              is_open: true
+            },
+            {
+              day: { tr: 'Salı', en: 'Tuesday' },
+              hours: { tr: '09:00 - 18:00', en: '09:00 - 18:00' },
+              is_open: true
+            },
+            {
+              day: { tr: 'Çarşamba', en: 'Wednesday' },
+              hours: { tr: '09:00 - 18:00', en: '09:00 - 18:00' },
+              is_open: true
+            },
+            {
+              day: { tr: 'Perşembe', en: 'Thursday' },
+              hours: { tr: '09:00 - 18:00', en: '09:00 - 18:00' },
+              is_open: true
+            },
+            {
+              day: { tr: 'Cuma', en: 'Friday' },
+              hours: { tr: '09:00 - 18:00', en: '09:00 - 18:00' },
+              is_open: true
+            },
+            {
+              day: { tr: 'Cumartesi', en: 'Saturday' },
+              hours: { tr: 'Kapalı', en: 'Closed' },
+              is_open: false
+            },
+            {
+              day: { tr: 'Pazar', en: 'Sunday' },
+              hours: { tr: 'Kapalı', en: 'Closed' },
+              is_open: false
+            }
+          ],
+          // Frontend için konum bilgisi
+          location: {
+            lat: 40.9874,
+            lng: 29.1275
+          }
+        };
 
-    if (!contactInfo) {
-      // Return default content if nothing in database
-      const defaultContent = {
-        office_info: {
-          name: {
-            tr: 'Oğuz Yolyapan Beslenme Danışmanlığı',
-            en: 'Oğuz Yolyapan Nutrition Consulting'
-          },
-          address: {
-            tr: 'Ataşehir, İstanbul',
-            en: 'Ataşehir, Istanbul'
-          },
-          city: 'İstanbul',
-          country: {
-            tr: 'Türkiye',
-            en: 'Turkey'
-          }
-        },
-        contact_details: {
-          phone: '+90 555 123 4567',
-          whatsapp: '+90 555 123 4567',
-          email: 'info@oguzyolyapan.com',
-          website: 'www.oguzyolyapan.com'
-        },
-        social_media: {
-          instagram: '@oguzyolyapan',
-          linkedin: 'oguzyolyapan'
-        },
-        office_hours: [
-          {
-            day: { tr: 'Pazartesi', en: 'Monday' },
-            hours: { tr: '09:00 - 18:00', en: '09:00 - 18:00' },
-            is_open: true
-          },
-          {
-            day: { tr: 'Salı', en: 'Tuesday' },
-            hours: { tr: '09:00 - 18:00', en: '09:00 - 18:00' },
-            is_open: true
-          },
-          {
-            day: { tr: 'Çarşamba', en: 'Wednesday' },
-            hours: { tr: '09:00 - 18:00', en: '09:00 - 18:00' },
-            is_open: true
-          },
-          {
-            day: { tr: 'Perşembe', en: 'Thursday' },
-            hours: { tr: '09:00 - 18:00', en: '09:00 - 18:00' },
-            is_open: true
-          },
-          {
-            day: { tr: 'Cuma', en: 'Friday' },
-            hours: { tr: '09:00 - 18:00', en: '09:00 - 18:00' },
-            is_open: true
-          },
-          {
-            day: { tr: 'Cumartesi', en: 'Saturday' },
-            hours: { tr: 'Kapalı', en: 'Closed' },
-            is_open: false
-          },
-          {
-            day: { tr: 'Pazar', en: 'Sunday' },
-            hours: { tr: 'Kapalı', en: 'Closed' },
-            is_open: false
-          }
-        ]
-      };
+        return res.status(200).json({
+          success: true,
+          data: defaultContent
+        });
+      }
 
       return res.status(200).json({
         success: true,
-        data: defaultContent
+        data: contactInfo
+      });
+    } catch (error) {
+      console.error('Contact error:', error);
+      return res.status(500).json({ 
+        success: false, 
+        error: error.message 
       });
     }
-
-    return res.status(200).json({
-      success: true,
-      data: contactInfo
-    });
-  } catch (error) {
-    console.error('Contact error:', error);
-    return res.status(500).json({ 
-      success: false, 
-      error: error.message 
-    });
   }
+
+  if (req.method === 'POST') {
+    try {
+      const { name, email, phone, subject, message } = req.body;
+
+      // Contact formu gönderimi - şimdilik log
+      console.log('Contact form submission:', {
+        name,
+        email,
+        phone,
+        subject,
+        message,
+        timestamp: new Date()
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: {
+          tr: 'Mesajınız başarıyla gönderildi. En kısa sürede size dönüş yapacağız.',
+          en: 'Your message has been sent successfully. We will get back to you soon.'
+        }
+      });
+
+    } catch (error) {
+      console.error('Contact submit error:', error);
+      return res.status(500).json({ 
+        success: false, 
+        error: error.message 
+      });
+    }
+  }
+
+  return res.status(405).json({ error: 'Method Not Allowed' });
 }
