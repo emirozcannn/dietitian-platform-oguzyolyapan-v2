@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+const mongoose = require('mongoose');
 
 // MongoDB connection
 let isConnected = false;
@@ -306,7 +306,7 @@ const corsHeaders = {
   'Access-Control-Max-Age': '86400'
 };
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   // Set CORS headers
   Object.entries(corsHeaders).forEach(([key, value]) => {
     res.setHeader(key, value);

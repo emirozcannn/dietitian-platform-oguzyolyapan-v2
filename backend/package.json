@@ -1,6 +1,5 @@
 {
   "name": "oguz-dietitian-backend",
-  "type": "module",
   "private": true,
   "version": "1.0.0",
   "description": "Backend API for Oğuz Yolyapan Dietitian Platform",
